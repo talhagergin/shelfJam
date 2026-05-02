@@ -8,9 +8,12 @@ struct LevelResultOverlay: View {
     let diamonds: Int
     let earnedDiamonds: Int
     let canBuyLife: Bool
+    let canWatchAdForMoves: Bool
+    let isAdLoading: Bool
     let onRetry: () -> Void
     let onLevels: () -> Void
     let onBuyLife: () -> Void
+    let onWatchAdForMoves: () -> Void
     let onNext: (() -> Void)?
     @State private var contentVisible = false
 
@@ -64,6 +67,13 @@ struct LevelResultOverlay: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!canBuyLife)
+                    Button {
+                        onWatchAdForMoves()
+                    } label: {
+                        Label(isAdLoading ? "Loading..." : "Watch Ad +5 Moves", systemImage: "play.rectangle.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!canWatchAdForMoves)
                 case .playing:
                     EmptyView()
                 }

@@ -52,6 +52,26 @@ final class GameLogicTests: XCTestCase {
         }
     }
 
+    func testAllLevelsAreSolvableWithinMoveLimit() {
+        let solver = LevelSolvabilitySolver()
+
+        for level in StaticLevelProvider().levels {
+            let solution = solver.solve(level: level)
+            XCTAssertNotNil(
+                solution,
+                "Level \(level.id) (\(level.title)) could not be solved within \(level.moveLimit) moves."
+            )
+
+            if let solution {
+                XCTAssertLessThanOrEqual(
+                    solution.moveCount,
+                    level.moveLimit,
+                    "Level \(level.id) was solved in \(solution.moveCount) moves, above limit \(level.moveLimit)."
+                )
+            }
+        }
+    }
+
     func testSelectingUnlockedItemSetsSelectedPosition() {
         let viewModel = makeViewModel(shelves: [
             row(.apple, nil, .car, .book, .cup)
@@ -393,5 +413,158 @@ private final class InMemoryProgressStore: ProgressStore {
         diamonds -= GameConstants.lifeDiamondCost
         lives += 1
         return true
+    }
+}
+
+private struct LevelSolution {
+    let moves: [SolvedMove]
+
+    var moveCount: Int {
+        moves.count
+    }
+}
+
+private struct SolvedMove {
+    let from: Position
+    let to: Position
+}
+
+private struct LevelSolvabilitySolver {
+    private typealias Board = [[ShelfItemType?]]
+
+    func solve(level: ShelfLevel) -> LevelSolution? {
+        let board = level.shelves.map { shelf in shelf.map { $0?.type } }
+        var memo: [String: Int] = [:]
+        var path: [SolvedMove] = []
+
+        guard search(board: board, movesLeft: level.moveLimit, memo: &memo, path: &path) else {
+            return nil
+        }
+
+        return LevelSolution(moves: path)
+    }
+
+    private func search(
+        board: Board,
+        movesLeft: Int,
+        memo: inout [String: Int],
+        path: inout [SolvedMove]
+    ) -> Bool {
+        if isCleared(board) {
+            return true
+        }
+
+        guard movesLeft > 0 else {
+            return false
+        }
+
+        let key = stateKey(for: board)
+        if let bestMovesLeft = memo[key], bestMovesLeft >= movesLeft {
+            return false
+        }
+        memo[key] = movesLeft
+
+        let candidateMoves = legalMoves(on: board)
+        for move in candidateMoves {
+            let movedBoard = apply(move, to: board)
+            let clearedBoard = clearMatches(in: movedBoard)
+            path.append(move)
+            if search(board: clearedBoard, movesLeft: movesLeft - 1, memo: &memo, path: &path) {
+                return true
+            }
+            path.removeLast()
+        }
+
+        return false
+    }
+
+    private func legalMoves(on board: Board) -> [SolvedMove] {
+        var scoredMoves: [(move: SolvedMove, clearedCount: Int)] = []
+
+        for sourceShelf in board.indices {
+            for sourceSlot in board[sourceShelf].indices where board[sourceShelf][sourceSlot] != nil {
+                let from = Position(shelfIndex: sourceShelf, slotIndex: sourceSlot)
+                for targetShelf in board.indices {
+                    for targetSlot in board[targetShelf].indices where board[targetShelf][targetSlot] == nil {
+                        let to = Position(shelfIndex: targetShelf, slotIndex: targetSlot)
+                        guard from != to else { continue }
+
+                        let movedBoard = apply(SolvedMove(from: from, to: to), to: board)
+                        let matches = findMatches(in: movedBoard)
+                        let clearedCount = matches.reduce(0) { $0 + $1.slotIndexes.count }
+                        scoredMoves.append((SolvedMove(from: from, to: to), clearedCount))
+                    }
+                }
+            }
+        }
+
+        return scoredMoves
+            .sorted { lhs, rhs in
+                if lhs.clearedCount != rhs.clearedCount {
+                    return lhs.clearedCount > rhs.clearedCount
+                }
+                return lhs.move.from.shelfIndex < rhs.move.from.shelfIndex
+            }
+            .map(\.move)
+    }
+
+    private func apply(_ move: SolvedMove, to board: Board) -> Board {
+        var next = board
+        let item = next[move.from.shelfIndex][move.from.slotIndex]
+        next[move.from.shelfIndex][move.from.slotIndex] = nil
+        next[move.to.shelfIndex][move.to.slotIndex] = item
+        return next
+    }
+
+    private func clearMatches(in board: Board) -> Board {
+        var next = board
+        let matches = findMatches(in: board)
+        for match in matches {
+            for slotIndex in match.slotIndexes {
+                next[match.shelfIndex][slotIndex] = nil
+            }
+        }
+        return next
+    }
+
+    private func findMatches(in board: Board) -> [MatchGroup] {
+        var matches: [MatchGroup] = []
+
+        for (shelfIndex, shelf) in board.enumerated() {
+            var index = 0
+            while index < shelf.count {
+                guard let itemType = shelf[index] else {
+                    index += 1
+                    continue
+                }
+
+                var slotIndexes = [index]
+                var cursor = index + 1
+                while cursor < shelf.count, shelf[cursor] == itemType {
+                    slotIndexes.append(cursor)
+                    cursor += 1
+                }
+
+                if slotIndexes.count >= 3 {
+                    matches.append(MatchGroup(shelfIndex: shelfIndex, slotIndexes: slotIndexes, itemType: itemType))
+                }
+
+                index = cursor
+            }
+        }
+
+        return matches
+    }
+
+    private func isCleared(_ board: Board) -> Bool {
+        board.allSatisfy { shelf in shelf.allSatisfy { $0 == nil } }
+    }
+
+    private func stateKey(for board: Board) -> String {
+        board
+            .map { shelf in
+                shelf.map { $0?.rawValue ?? "-" }.joined(separator: ",")
+            }
+            .joined(separator: "|")
     }
 }

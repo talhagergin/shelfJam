@@ -1,12 +1,16 @@
 import SwiftUI
 
 struct GameView: View {
+    let progressStore: any ProgressStore
     let onNextLevel: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel: GameViewModel
+    @State private var showingSettings = false
+    @State private var soundEnabled = true
 
     init(level: ShelfLevel, progressStore: any ProgressStore, onNextLevel: (() -> Void)? = nil) {
+        self.progressStore = progressStore
         self.onNextLevel = onNextLevel
         _viewModel = StateObject(
             wrappedValue: GameViewModel(
@@ -75,14 +79,32 @@ struct GameView: View {
                     diamonds: viewModel.diamonds,
                     earnedDiamonds: viewModel.earnedDiamonds,
                     canBuyLife: viewModel.diamonds >= GameConstants.lifeDiamondCost && viewModel.lives < GameConstants.maxLives,
+                    canWatchAdForMoves: viewModel.canWatchRewardedAdForMoves,
+                    isAdLoading: viewModel.isRewardedAdLoading,
                     onRetry: viewModel.retry,
                     onLevels: { dismiss() },
                     onBuyLife: viewModel.buyLifeWithDiamonds,
+                    onWatchAdForMoves: viewModel.watchRewardedAdForExtraMoves,
                     onNext: onNextLevel
                 )
             }
         }
         .navigationBarBackButtonHidden()
+        .onAppear {
+            soundEnabled = progressStore.isSoundEnabled
+            BackgroundMusicManager.shared.setEnabled(viewModel.isSoundEnabled)
+        }
+        .sheet(isPresented: $showingSettings, onDismiss: {
+            soundEnabled = progressStore.isSoundEnabled
+            BackgroundMusicManager.shared.setEnabled(soundEnabled)
+        }) {
+            NavigationStack {
+                SettingsView(progressStore: progressStore)
+                    .navigationTitle("Settings")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+            .presentationDetents([.medium])
+        }
         .onChange(of: viewModel.invalidTargetPosition) { _, newValue in
             guard newValue != nil else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -118,16 +140,6 @@ struct GameView: View {
                 startPoint: .topTrailing,
                 endPoint: .bottomLeading
             )
-            Circle()
-                .fill(.cyan.opacity(colorScheme == .dark ? 0.10 : 0.22))
-                .frame(width: 260, height: 260)
-                .blur(radius: 52)
-                .offset(x: 150, y: -260)
-            Circle()
-                .fill(.yellow.opacity(colorScheme == .dark ? 0.08 : 0.18))
-                .frame(width: 320, height: 320)
-                .blur(radius: 64)
-                .offset(x: -170, y: 320)
         }
         .ignoresSafeArea()
     }
@@ -155,6 +167,17 @@ struct GameView: View {
                 }
 
                 Spacer()
+
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .font(.headline)
+                        .frame(width: 38, height: 38)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
             }
 
             HStack(spacing: 10) {

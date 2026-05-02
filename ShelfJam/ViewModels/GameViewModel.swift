@@ -18,6 +18,8 @@ final class GameViewModel: ObservableObject {
     @Published private(set) var lives: Int
     @Published private(set) var diamonds: Int
     @Published private(set) var earnedDiamonds = 0
+    @Published private(set) var rewardedMoveUsesLeft = 1
+    @Published private(set) var isRewardedAdLoading = false
 
     private(set) var undoStack: [MoveRecord] = []
     @Published private(set) var undoUsesLeft = GameConstants.maxUndoUses
@@ -28,13 +30,15 @@ final class GameViewModel: ObservableObject {
     private let matchResolver: MatchResolver
     private let haptics: HapticsManaging
     private let sound: SoundManaging
+    private let rewardedAdService: any RewardedAdManaging
 
     init(
         level: ShelfLevel,
         progressStore: any ProgressStore,
         matchResolver: MatchResolver = MatchResolver(),
         haptics: HapticsManaging = NoopHapticsManager(),
-        sound: SoundManaging = NoopSoundManager()
+        sound: SoundManaging = NoopSoundManager(),
+        rewardedAdService: any RewardedAdManaging = MockRewardedAdService()
     ) {
         self.level = level
         self.shelves = level.shelves
@@ -43,6 +47,7 @@ final class GameViewModel: ObservableObject {
         self.matchResolver = matchResolver
         self.haptics = haptics
         self.sound = sound
+        self.rewardedAdService = rewardedAdService
         self.lives = progressStore.getLives()
         self.diamonds = progressStore.getDiamonds()
     }
@@ -66,6 +71,14 @@ final class GameViewModel: ObservableObject {
 
     var canShuffle: Bool {
         shuffleUsesLeft > 0 && status == .playing && shelves.flatMap { $0 }.compactMap { $0 }.count > 1
+    }
+
+    var isSoundEnabled: Bool {
+        progressStore.isSoundEnabled
+    }
+
+    var canWatchRewardedAdForMoves: Bool {
+        status == .failed && rewardedMoveUsesLeft > 0 && !isRewardedAdLoading
     }
 
     func item(at position: Position) -> ShelfItem? {
@@ -249,6 +262,24 @@ final class GameViewModel: ObservableObject {
         }
     }
 
+    func watchRewardedAdForExtraMoves() {
+        guard canWatchRewardedAdForMoves else { return }
+        isRewardedAdLoading = true
+        Task { @MainActor in
+            let didEarnReward = await rewardedAdService.showRewardedExtraMovesAd()
+            isRewardedAdLoading = false
+            guard didEarnReward else {
+                haptics.warning()
+                return
+            }
+            rewardedMoveUsesLeft -= 1
+            movesLeft += 5
+            status = .playing
+            haptics.success()
+            sound.playWin()
+        }
+    }
+
     func refreshEconomy() {
         lives = progressStore.getLives()
         diamonds = progressStore.getDiamonds()
@@ -292,6 +323,8 @@ final class GameViewModel: ObservableObject {
         undoUsesLeft = GameConstants.maxUndoUses
         hintUsesLeft = GameConstants.maxHintUses
         shuffleUsesLeft = GameConstants.maxShuffleUses
+        rewardedMoveUsesLeft = 1
+        isRewardedAdLoading = false
         matchedPositions = []
         recentMatchEffects = []
         hintPositions = []

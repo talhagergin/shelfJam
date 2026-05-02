@@ -34,26 +34,43 @@ struct LevelSelectView: View {
             .ignoresSafeArea()
 
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(viewModel.levels) { level in
-                        if viewModel.isUnlocked(level) {
-                            NavigationLink {
-                                GameFlowView(
-                                    initialLevel: level,
-                                    levelProvider: levelProvider,
-                                    progressStore: progressStore
-                                )
-                            } label: {
+                VStack(spacing: 14) {
+                    if viewModel.lives <= 0 {
+                        Label("No lives left. Wait for refill or buy a life with diamonds after a fail.", systemImage: "heart.slash.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(.red.opacity(0.28), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(viewModel.levels) { level in
+                            if viewModel.canPlay(level) {
+                                NavigationLink {
+                                    GameFlowView(
+                                        initialLevel: level,
+                                        levelProvider: levelProvider,
+                                        progressStore: progressStore
+                                    )
+                                } label: {
+                                    LevelCard(
+                                        level: level,
+                                        stars: viewModel.bestStars(for: level),
+                                        score: viewModel.bestScore(for: level),
+                                        isLocked: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            } else {
                                 LevelCard(
                                     level: level,
                                     stars: viewModel.bestStars(for: level),
                                     score: viewModel.bestScore(for: level),
-                                    isLocked: false
+                                    isLocked: !viewModel.isUnlocked(level),
+                                    isOutOfLives: viewModel.isUnlocked(level) && viewModel.lives <= 0
                                 )
                             }
-                            .buttonStyle(.plain)
-                        } else {
-                            LevelCard(level: level, stars: 0, score: 0, isLocked: true)
                         }
                     }
                 }
@@ -70,6 +87,7 @@ private struct LevelCard: View {
     let stars: Int
     let score: Int
     let isLocked: Bool
+    var isOutOfLives = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -77,8 +95,8 @@ private struct LevelCard: View {
                 Text("\(level.id)")
                     .font(.title.bold())
                 Spacer()
-                Image(systemName: isLocked ? "lock.fill" : "tray.full.fill")
-                    .foregroundStyle(isLocked ? .secondary : level.theme.accent)
+                Image(systemName: isLocked ? "lock.fill" : (isOutOfLives ? "heart.slash.fill" : "tray.full.fill"))
+                    .foregroundStyle(isLocked || isOutOfLives ? .secondary : level.theme.accent)
             }
 
             Text(level.title)
@@ -96,6 +114,10 @@ private struct LevelCard: View {
                 Text("Locked")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } else if isOutOfLives {
+                Text("No lives")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
                 StarsView(stars: stars)
                 Text(score > 0 ? "Best \(score)" : "No score yet")
@@ -107,7 +129,7 @@ private struct LevelCard: View {
         .frame(height: 150)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppStyle.cornerRadius, style: .continuous))
-        .opacity(isLocked ? 0.62 : 1)
+        .opacity(isLocked || isOutOfLives ? 0.62 : 1)
         .accessibilityLabel(isLocked ? "Level \(level.id), locked" : "Level \(level.id), \(stars) stars, best score \(score)")
     }
 }

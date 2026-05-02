@@ -53,6 +53,7 @@ struct MainMenuView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
+                            .disabled(lives <= 0)
                         }
 
                         NavigationLink {
@@ -81,6 +82,7 @@ struct MainMenuView: View {
             .onAppear {
                 lives = progressStore.getLives()
                 diamonds = progressStore.getDiamonds()
+                BackgroundMusicManager.shared.setEnabled(progressStore.isSoundEnabled)
             }
         }
     }

@@ -3,7 +3,10 @@ import Combine
 
 final class SettingsViewModel: ObservableObject {
     @Published var soundEnabled: Bool {
-        didSet { progressStore.isSoundEnabled = soundEnabled }
+        didSet {
+            progressStore.isSoundEnabled = soundEnabled
+            BackgroundMusicManager.shared.setEnabled(soundEnabled)
+        }
     }
 
     @Published var hapticsEnabled: Bool {

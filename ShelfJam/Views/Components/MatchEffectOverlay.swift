@@ -54,7 +54,7 @@ struct MatchEffectOverlay: View {
 
     private var confettiEffect: some View {
         ZStack {
-            ForEach(0..<22, id: \.self) { index in
+            ForEach(0..<14, id: \.self) { index in
                 Text(confettiSymbol(for: index))
                     .font(.system(size: index.isMultiple(of: 3) ? 28 : 20))
                     .rotationEffect(.degrees(isAnimating ? Double(index * 27) : 0))
@@ -75,11 +75,11 @@ struct MatchEffectOverlay: View {
 
     private var bounceEffect: some View {
         ZStack {
-            ForEach(0..<5, id: \.self) { index in
+            ForEach(0..<4, id: \.self) { index in
                 Text("⚽️")
                     .font(.system(size: 34))
                     .offset(
-                        x: CGFloat(index - 2) * 34,
+                        x: CGFloat(index - 2) * 38,
                         y: isAnimating ? CGFloat(abs(index - 2)) * 18 - 110 : 30
                     )
                     .scaleEffect(isAnimating ? 0.4 : 1.2)
@@ -91,13 +91,13 @@ struct MatchEffectOverlay: View {
 
     private func burstEffect(symbols: [String], color: Color) -> some View {
         ZStack {
-            ForEach(0..<16, id: \.self) { index in
+            ForEach(0..<10, id: \.self) { index in
                 Text(symbols[index % symbols.count])
                     .font(.system(size: index.isMultiple(of: 4) ? 30 : 22))
                     .foregroundStyle(color)
                     .offset(
-                        x: isAnimating ? CGFloat((index % 8) - 3) * 36 : 0,
-                        y: isAnimating ? CGFloat((index / 8) - 1) * 54 : 0
+                        x: isAnimating ? CGFloat((index % 5) - 2) * 44 : 0,
+                        y: isAnimating ? CGFloat((index / 5) - 1) * 62 : 0
                     )
                     .rotationEffect(.degrees(isAnimating ? Double(index * 21) : 0))
                     .scaleEffect(isAnimating ? 1.38 : 0.1)

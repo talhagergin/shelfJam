@@ -11,7 +11,8 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Play") {
-                Toggle("Sound", isOn: $viewModel.soundEnabled)
+                Toggle("Background Music", isOn: $viewModel.backgroundMusicEnabled)
+                Toggle("Game Sounds", isOn: $viewModel.gameSoundEnabled)
                 Toggle("Haptics", isOn: $viewModel.hapticsEnabled)
             }
 

@@ -6,6 +6,15 @@ final class GameLogicTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(StaticLevelProvider().levels.count, 60)
     }
 
+    func testGeneratedLevelsDoNotUseBombItems() {
+        for level in StaticLevelProvider().levels {
+            XCTAssertFalse(
+                level.shelves.flatMap { $0 }.compactMap { $0 }.contains { $0.isBomb },
+                "Level \(level.id) still contains a bomb item."
+            )
+        }
+    }
+
     func testAllHandcraftedLevelsHaveClearableItemCounts() {
         let levels = StaticLevelProvider().levels
 
@@ -17,10 +26,22 @@ final class GameLogicTests: XCTestCase {
                     3,
                     "Level \(level.id) has only \(count) \(type.rawValue) item(s), which cannot be cleared by match-3 rules."
                 )
+            }
+        }
+    }
+
+    func testLevelsWithoutSpecialClearersUseMatchableItemCounts() {
+        let levels = StaticLevelProvider().levels.filter { level in
+            level.shelves.flatMap { $0 }.compactMap { $0 }.allSatisfy { !$0.isBomb && !$0.isJoker }
+        }
+
+        for level in levels {
+            let counts = itemCounts(in: level)
+            for (type, count) in counts {
                 XCTAssertEqual(
                     count % 3,
                     0,
-                    "Level \(level.id) has \(count) \(type.rawValue) items; every type must appear in clearable groups of three."
+                    "Level \(level.id) leaves \(count) \(type.rawValue) item(s). Without bombs/jokers, each type must be divisible by 3."
                 )
             }
         }
@@ -50,6 +71,20 @@ final class GameLogicTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testChallengeLevelsUseDistinctPressureRules() {
+        let provider = StaticLevelProvider()
+
+        let rush = provider.level(id: 35)
+        XCTAssertEqual(rush?.title, "Rush Challenge 35")
+        XCTAssertEqual(rush?.moveLimit, 35)
+        XCTAssertEqual(rush?.timeLimit, 26)
+
+        let precision = provider.level(id: 40)
+        XCTAssertEqual(precision?.title, "Precision Challenge 40")
+        XCTAssertEqual(precision?.moveLimit, 9)
+        XCTAssertEqual(precision?.timeLimit, 0)
     }
 
     func testAllLevelsAreSolvableWithinMoveLimit() {
@@ -155,6 +190,14 @@ final class GameLogicTests: XCTestCase {
         XCTAssertTrue(matches.isEmpty)
     }
 
+    func testLockedItemsDoNotMatchBeforeUnlock() {
+        let matches = MatchResolver().findMatches(in: [
+            [lockedItem(.apple), lockedItem(.apple), lockedItem(.apple), nil, nil]
+        ])
+
+        XCTAssertTrue(matches.isEmpty)
+    }
+
     func testClearMatchedItems() {
         let viewModel = makeViewModel(shelves: [
             row(.apple, .apple, .apple, .car, nil)
@@ -183,6 +226,59 @@ final class GameLogicTests: XCTestCase {
         XCTAssertEqual(viewModel.score, 100)
     }
 
+    func testFiveMatchUnlocksAndClearsLockedItemsInCascade() {
+        let viewModel = makeViewModel(
+            shelves: [
+                row(.apple, .apple, nil, .apple, .apple),
+                [lockedItem(.apple), lockedItem(.apple), lockedItem(.apple), nil, nil],
+                row(.apple, nil, nil, nil, nil)
+            ],
+            moveLimit: 3
+        )
+
+        viewModel.selectItem(at: Position(shelfIndex: 2, slotIndex: 0))
+        viewModel.moveSelectedItem(to: Position(shelfIndex: 0, slotIndex: 2))
+
+        XCTAssertTrue(viewModel.isBoardCleared)
+        XCTAssertGreaterThan(viewModel.score, 280)
+    }
+
+    func testFiveMatchUnlocksScatteredLockedItemsWithoutClearingThemAutomatically() {
+        let viewModel = makeViewModel(
+            shelves: [
+                row(.apple, .apple, nil, .apple, .apple),
+                mixedRow(lockedItem(.apple), item(.car), nil, item(.car), nil),
+                mixedRow(item(.book), lockedItem(.apple), item(.book), nil, nil),
+                mixedRow(item(.cup), nil, item(.cup), lockedItem(.apple), nil),
+                row(.apple, nil, nil, nil, nil)
+            ],
+            moveLimit: 6
+        )
+
+        viewModel.selectItem(at: Position(shelfIndex: 4, slotIndex: 0))
+        viewModel.moveSelectedItem(to: Position(shelfIndex: 0, slotIndex: 2))
+
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 1, slotIndex: 0))?.isLocked, false)
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 2, slotIndex: 1))?.isLocked, false)
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 3, slotIndex: 3))?.isLocked, false)
+        XCTAssertFalse(viewModel.isBoardCleared)
+    }
+
+    func testAdjacentThreeMatchUnlocksMatchingLockedItems() {
+        let viewModel = makeViewModel(
+            shelves: [
+                row(.book, .book, .book, nil, nil),
+                mixedRow(nil, lockedItem(.book), nil, nil, nil),
+                mixedRow(nil, nil, lockedItem(.book), nil, nil)
+            ]
+        )
+
+        viewModel.clearMatches()
+
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 1, slotIndex: 1))?.isLocked, false)
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 2, slotIndex: 2))?.isLocked, false)
+    }
+
     func testMovesDecreaseAfterValidMove() {
         let viewModel = makeViewModel(shelves: [
             row(.apple, nil, .car, .book, .cup)
@@ -205,6 +301,71 @@ final class GameLogicTests: XCTestCase {
         XCTAssertEqual(viewModel.movesLeft, 10)
     }
 
+    func testTimerStartsWithLevelTimeLimit() {
+        let viewModel = makeViewModel(shelves: [
+            row(.apple, nil, .car, .book, .cup)
+        ], timeLimit: 42)
+
+        XCTAssertEqual(viewModel.timeRemaining, 42)
+    }
+
+    func testTimerTickDecreasesTime() {
+        let viewModel = makeViewModel(shelves: [
+            row(.apple, nil, .car, .book, .cup)
+        ], timeLimit: 42)
+
+        viewModel.tickTimer(by: 5)
+
+        XCTAssertEqual(viewModel.timeRemaining, 37)
+    }
+
+    func testTimerReachingZeroFailsLevelAndConsumesLife() {
+        let store = InMemoryProgressStore()
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            timeLimit: 3,
+            progressStore: store
+        )
+
+        viewModel.tickTimer(by: 3)
+
+        XCTAssertEqual(viewModel.status, .failed)
+        XCTAssertEqual(store.lives, GameConstants.maxLives - 1)
+    }
+
+    func testTimerDoesNotTickWhenPaused() {
+        let viewModel = makeViewModel(shelves: [
+            row(.apple, nil, .car, .book, .cup)
+        ], timeLimit: 42)
+
+        viewModel.pauseTimer()
+        viewModel.tickTimer(by: 8)
+
+        XCTAssertEqual(viewModel.timeRemaining, 42)
+    }
+
+    func testTimerDoesNotTickAfterLevelEnds() {
+        let viewModel = makeViewModel(shelves: [
+            row(.apple, nil, .car, .book, .cup)
+        ], timeLimit: 42)
+
+        viewModel.failLevel()
+        viewModel.tickTimer(by: 8)
+
+        XCTAssertEqual(viewModel.timeRemaining, 42)
+    }
+
+    func testUntimedLevelDoesNotTickDown() {
+        let viewModel = makeViewModel(shelves: [
+            row(.apple, nil, .car, .book, .cup)
+        ], timeLimit: 0)
+
+        viewModel.tickTimer(by: 20)
+
+        XCTAssertEqual(viewModel.timeRemaining, 0)
+        XCTAssertEqual(viewModel.status, .playing)
+    }
+
     func testStarsCalculation() {
         XCTAssertEqual(GameViewModel.calculateStars(movesLeft: 4, moveLimit: 10), 3)
         XCTAssertEqual(GameViewModel.calculateStars(movesLeft: 2, moveLimit: 10), 2)
@@ -214,15 +375,30 @@ final class GameLogicTests: XCTestCase {
     func testUndoRestoresPreviousState() {
         let viewModel = makeViewModel(shelves: [
             row(.apple, nil, .car, .book, .cup)
-        ])
+        ], timeLimit: 50)
 
         viewModel.selectItem(at: Position(shelfIndex: 0, slotIndex: 0))
         viewModel.moveSelectedItem(to: Position(shelfIndex: 0, slotIndex: 1))
+        viewModel.tickTimer(by: 7)
         viewModel.undo()
 
         XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 0, slotIndex: 0))?.type, .apple)
         XCTAssertNil(viewModel.item(at: Position(shelfIndex: 0, slotIndex: 1)))
-        XCTAssertEqual(viewModel.movesLeft, 10)
+        XCTAssertEqual(viewModel.movesLeft, 8)
+        XCTAssertEqual(viewModel.timeRemaining, 43)
+    }
+
+    func testAbandonLevelConsumesOneLife() {
+        let store = InMemoryProgressStore()
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            progressStore: store
+        )
+
+        viewModel.abandonLevel()
+
+        XCTAssertEqual(store.lives, GameConstants.maxLives - 1)
+        XCTAssertEqual(viewModel.status, .failed)
     }
 
     func testHintSelectsMoveThatCreatesMatch() {
@@ -251,6 +427,18 @@ final class GameLogicTests: XCTestCase {
         XCTAssertEqual(beforeTypes, afterTypes)
         XCTAssertEqual(viewModel.movesLeft, 10)
         XCTAssertEqual(viewModel.shuffleUsesLeft, GameConstants.maxShuffleUses - 1)
+    }
+
+    func testShuffleKeepsLockedItemsFixed() {
+        let viewModel = makeViewModel(shelves: [
+            [lockedItem(.apple), item(.car), item(.book), item(.cup), nil],
+            row(nil, nil, nil, nil, nil)
+        ])
+
+        viewModel.shuffle()
+
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 0, slotIndex: 0))?.type, .apple)
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 0, slotIndex: 0))?.isLocked, true)
     }
 
     func testFailWhenMovesReachZero() {
@@ -318,16 +506,97 @@ final class GameLogicTests: XCTestCase {
         XCTAssertEqual(viewModel.earnedDiamonds, GameConstants.diamondReward(for: 3))
     }
 
+    func testRetryResetsTimer() {
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            moveLimit: 1,
+            timeLimit: 30
+        )
+
+        viewModel.tickTimer(by: 12)
+        viewModel.selectItem(at: Position(shelfIndex: 0, slotIndex: 0))
+        viewModel.moveSelectedItem(to: Position(shelfIndex: 0, slotIndex: 1))
+        viewModel.retry()
+
+        XCTAssertEqual(viewModel.timeRemaining, 30)
+        XCTAssertEqual(viewModel.movesLeft, 1)
+        XCTAssertEqual(viewModel.score, 0)
+        XCTAssertEqual(viewModel.status, .playing)
+    }
+
+    func testSettingsSeparateBackgroundMusicAndGameSoundToggles() {
+        let store = InMemoryProgressStore()
+        let settings = SettingsViewModel(progressStore: store)
+
+        settings.backgroundMusicEnabled = false
+        XCTAssertFalse(store.isBackgroundMusicEnabled)
+        XCTAssertTrue(store.isGameSoundEnabled)
+
+        settings.gameSoundEnabled = false
+        XCTAssertFalse(store.isBackgroundMusicEnabled)
+        XCTAssertFalse(store.isGameSoundEnabled)
+    }
+
+    @MainActor
+    func testRewardedAdSuccessAddsFiveMovesAndResumesPlay() async {
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            moveLimit: 1,
+            rewardedAdService: TestRewardedAdService(result: true)
+        )
+        viewModel.failLevel()
+
+        viewModel.watchRewardedAdForExtraMoves()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.movesLeft, 6)
+        XCTAssertEqual(viewModel.status, .playing)
+    }
+
+    @MainActor
+    func testRewardedAdFailureDoesNotAddMoves() async {
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            moveLimit: 1,
+            rewardedAdService: TestRewardedAdService(result: false)
+        )
+        viewModel.failLevel()
+
+        viewModel.watchRewardedAdForExtraMoves()
+        await Task.yield()
+
+        XCTAssertEqual(viewModel.movesLeft, 1)
+        XCTAssertEqual(viewModel.status, .failed)
+    }
+
+    @MainActor
+    func testRewardedAdCanOnlyBeUsedOncePerRun() async {
+        let viewModel = makeViewModel(
+            shelves: [row(.apple, nil, .car, .book, .cup)],
+            moveLimit: 1,
+            rewardedAdService: TestRewardedAdService(result: true)
+        )
+        viewModel.failLevel()
+        viewModel.watchRewardedAdForExtraMoves()
+        await Task.yield()
+        viewModel.failLevel()
+
+        XCTAssertFalse(viewModel.canWatchRewardedAdForMoves)
+    }
+
     private func makeViewModel(
         shelves: [[ShelfItem?]],
         moveLimit: Int = 10,
-        progressStore: InMemoryProgressStore = InMemoryProgressStore()
+        timeLimit: TimeInterval? = nil,
+        progressStore: InMemoryProgressStore = InMemoryProgressStore(),
+        rewardedAdService: any RewardedAdManaging = MockRewardedAdService()
     ) -> GameViewModel {
         let level = ShelfLevel(
             id: 999,
             title: "Test",
             shelves: shelves,
             moveLimit: moveLimit,
+            timeLimit: timeLimit,
             difficulty: .easy,
             targetScore: nil,
             theme: .kitchen,
@@ -338,7 +607,8 @@ final class GameLogicTests: XCTestCase {
             level: level,
             progressStore: progressStore,
             haptics: NoopHapticsManager(),
-            sound: NoopSoundManager()
+            sound: NoopSoundManager(),
+            rewardedAdService: rewardedAdService
         )
     }
 
@@ -355,10 +625,16 @@ private final class InMemoryProgressStore: ProgressStore {
     var bestScores: [Int: Int] = [:]
     var bestStars: [Int: Int] = [:]
     var highestUnlockedLevel = 1
-    var isSoundEnabled = true
+    var isBackgroundMusicEnabled = true
+    var isGameSoundEnabled = true
     var isHapticsEnabled = true
     var lives = GameConstants.maxLives
     var diamonds = 0
+    var undoInventory = 0
+    var hintInventory = 0
+    var shuffleInventory = 0
+    var hasSeenOnboarding = false
+    var hasSeenLockTutorial = false
 
     func getBestScore(levelID: Int) -> Int {
         bestScores[levelID, default: 0]
@@ -390,6 +666,11 @@ private final class InMemoryProgressStore: ProgressStore {
         highestUnlockedLevel = 1
         lives = GameConstants.maxLives
         diamonds = 0
+        undoInventory = 0
+        hintInventory = 0
+        shuffleInventory = 0
+        hasSeenOnboarding = false
+        hasSeenLockTutorial = false
     }
 
     func getLives() -> Int {
@@ -400,6 +681,10 @@ private final class InMemoryProgressStore: ProgressStore {
         lives = max(0, lives - 1)
     }
 
+    func addLife() {
+        lives = min(GameConstants.maxLives, lives + 1)
+    }
+
     func getDiamonds() -> Int {
         diamonds
     }
@@ -408,11 +693,78 @@ private final class InMemoryProgressStore: ProgressStore {
         diamonds += amount
     }
 
-    func spendDiamondsForLife() -> Bool {
-        guard lives < GameConstants.maxLives, diamonds >= GameConstants.lifeDiamondCost else { return false }
-        diamonds -= GameConstants.lifeDiamondCost
-        lives += 1
+    func spendDiamonds(_ amount: Int) -> Bool {
+        guard amount > 0, diamonds >= amount else { return false }
+        diamonds -= amount
         return true
+    }
+
+    func spendDiamondsForLife() -> Bool {
+        guard lives < GameConstants.maxLives, spendDiamonds(GameConstants.lifeDiamondCost) else { return false }
+        addLife()
+        return true
+    }
+
+    func getUndoInventory() -> Int {
+        undoInventory
+    }
+
+    func addUndoInventory(_ amount: Int) {
+        undoInventory += max(0, amount)
+    }
+
+    func consumeUndoInventory(_ amount: Int) -> Int {
+        let consumed = min(undoInventory, max(0, amount))
+        undoInventory -= consumed
+        return consumed
+    }
+
+    func getHintInventory() -> Int {
+        hintInventory
+    }
+
+    func addHintInventory(_ amount: Int) {
+        hintInventory += max(0, amount)
+    }
+
+    func consumeHintInventory(_ amount: Int) -> Int {
+        let consumed = min(hintInventory, max(0, amount))
+        hintInventory -= consumed
+        return consumed
+    }
+
+    func getShuffleInventory() -> Int {
+        shuffleInventory
+    }
+
+    func addShuffleInventory(_ amount: Int) {
+        shuffleInventory += max(0, amount)
+    }
+
+    func consumeShuffleInventory(_ amount: Int) -> Int {
+        let consumed = min(shuffleInventory, max(0, amount))
+        shuffleInventory -= consumed
+        return consumed
+    }
+
+    func setHasSeenOnboarding(_ value: Bool) {
+        hasSeenOnboarding = value
+    }
+
+    func setHasSeenLockTutorial(_ value: Bool) {
+        hasSeenLockTutorial = value
+    }
+}
+
+private struct TestRewardedAdService: RewardedAdManaging {
+    let result: Bool
+
+    func showRewardedExtraMovesAd() async -> Bool {
+        result
+    }
+
+    func showRewardedStoreAd() async -> Bool {
+        result
     }
 }
 
@@ -430,10 +782,15 @@ private struct SolvedMove {
 }
 
 private struct LevelSolvabilitySolver {
-    private typealias Board = [[ShelfItemType?]]
+    private typealias Board = [[SolverCell?]]
 
     func solve(level: ShelfLevel) -> LevelSolution? {
-        let board = level.shelves.map { shelf in shelf.map { $0?.type } }
+        let board = level.shelves.map { shelf in
+            shelf.map { item -> SolverCell? in
+                guard let item else { return nil }
+                return SolverCell(type: item.type, isLocked: item.isLocked, isJoker: item.isJoker, isBomb: item.isBomb)
+            }
+        }
         var memo: [String: Int] = [:]
         var path: [SolvedMove] = []
 
@@ -482,7 +839,8 @@ private struct LevelSolvabilitySolver {
         var scoredMoves: [(move: SolvedMove, clearedCount: Int)] = []
 
         for sourceShelf in board.indices {
-            for sourceSlot in board[sourceShelf].indices where board[sourceShelf][sourceSlot] != nil {
+            for sourceSlot in board[sourceShelf].indices {
+                guard let sourceCell = board[sourceShelf][sourceSlot], !sourceCell.isLocked else { continue }
                 let from = Position(shelfIndex: sourceShelf, slotIndex: sourceSlot)
                 for targetShelf in board.indices {
                     for targetSlot in board[targetShelf].indices where board[targetShelf][targetSlot] == nil {
@@ -498,7 +856,10 @@ private struct LevelSolvabilitySolver {
             }
         }
 
-        return scoredMoves
+        let priorityMoves = scoredMoves.filter { $0.clearedCount > 0 }
+        let movesToSearch = priorityMoves.isEmpty ? scoredMoves : priorityMoves
+
+        return movesToSearch
             .sorted { lhs, rhs in
                 if lhs.clearedCount != rhs.clearedCount {
                     return lhs.clearedCount > rhs.clearedCount
@@ -519,41 +880,137 @@ private struct LevelSolvabilitySolver {
     private func clearMatches(in board: Board) -> Board {
         var next = board
         let matches = findMatches(in: board)
-        for match in matches {
-            for slotIndex in match.slotIndexes {
-                next[match.shelfIndex][slotIndex] = nil
+        var clearPositions = Set(
+            matches.flatMap { match in
+                match.slotIndexes.map { Position(shelfIndex: match.shelfIndex, slotIndex: $0) }
+            }
+        )
+
+        for position in clearPositions {
+            guard board[position.shelfIndex][position.slotIndex]?.isBomb == true else { continue }
+            let candidatePositions = [
+                Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex - 1),
+                Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex + 1),
+                Position(shelfIndex: position.shelfIndex - 1, slotIndex: position.slotIndex),
+                Position(shelfIndex: position.shelfIndex + 1, slotIndex: position.slotIndex)
+            ]
+            for candidate in candidatePositions {
+                guard board.indices.contains(candidate.shelfIndex),
+                      board[candidate.shelfIndex].indices.contains(candidate.slotIndex),
+                      let cell = board[candidate.shelfIndex][candidate.slotIndex],
+                      !cell.isLocked
+                else { continue }
+                clearPositions.insert(candidate)
             }
         }
+
+        let fiveMatchTypes = Set(matches.filter { $0.slotIndexes.count >= 5 }.map(\.itemType))
+        let adjacentLockTypes = Set(matches.compactMap { match -> ShelfItemType? in
+            let matchedPositions = match.slotIndexes.map {
+                Position(shelfIndex: match.shelfIndex, slotIndex: $0)
+            }
+            let touchesMatchingLock = matchedPositions.contains { position in
+                adjacentPositions(to: position, on: board).contains { adjacent in
+                    guard let adjacentCell = board[adjacent.shelfIndex][adjacent.slotIndex] else { return false }
+                    return adjacentCell.isLocked && adjacentCell.type == match.itemType
+                }
+            }
+            return touchesMatchingLock ? match.itemType : nil
+        })
+        let unlockedTypes = fiveMatchTypes.union(adjacentLockTypes)
+        if unlockedTypes.isNotEmpty {
+            for shelfIndex in next.indices {
+                for slotIndex in next[shelfIndex].indices {
+                    guard var cell = next[shelfIndex][slotIndex],
+                          cell.isLocked,
+                          unlockedTypes.contains(cell.type)
+                    else { continue }
+                    cell.isLocked = false
+                    next[shelfIndex][slotIndex] = cell
+                }
+            }
+        }
+
+        for position in clearPositions {
+            next[position.shelfIndex][position.slotIndex] = nil
+        }
+        if findMatches(in: next).isNotEmpty {
+            return clearMatches(in: next)
+        }
         return next
+    }
+
+    private func adjacentPositions(to position: Position, on board: Board) -> [Position] {
+        [
+            Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex - 1),
+            Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex + 1),
+            Position(shelfIndex: position.shelfIndex - 1, slotIndex: position.slotIndex),
+            Position(shelfIndex: position.shelfIndex + 1, slotIndex: position.slotIndex)
+        ].filter { adjacent in
+            board.indices.contains(adjacent.shelfIndex)
+                && board[adjacent.shelfIndex].indices.contains(adjacent.slotIndex)
+        }
     }
 
     private func findMatches(in board: Board) -> [MatchGroup] {
         var matches: [MatchGroup] = []
 
         for (shelfIndex, shelf) in board.enumerated() {
-            var index = 0
-            while index < shelf.count {
-                guard let itemType = shelf[index] else {
-                    index += 1
-                    continue
-                }
+            let candidates = Set(shelf.compactMap { cell -> ShelfItemType? in
+                guard let cell, !cell.isLocked, !cell.isJoker else { return nil }
+                return cell.type
+            })
+            var shelfMatches: [MatchGroup] = []
 
-                var slotIndexes = [index]
-                var cursor = index + 1
-                while cursor < shelf.count, shelf[cursor] == itemType {
-                    slotIndexes.append(cursor)
-                    cursor += 1
-                }
+            for itemType in candidates {
+                for startIndex in shelf.indices {
+                    guard isCompatible(shelf[startIndex], with: itemType) else { continue }
 
-                if slotIndexes.count >= 3 {
-                    matches.append(MatchGroup(shelfIndex: shelfIndex, slotIndexes: slotIndexes, itemType: itemType))
-                }
+                    var slotIndexes: [Int] = []
+                    var cursor = startIndex
+                    while cursor < shelf.count, isCompatible(shelf[cursor], with: itemType) {
+                        slotIndexes.append(cursor)
+                        cursor += 1
+                    }
 
-                index = cursor
+                    guard slotIndexes.count >= 3,
+                          slotIndexes.contains(where: { shelf[$0]?.isJoker == false })
+                    else { continue }
+
+                    shelfMatches.append(MatchGroup(shelfIndex: shelfIndex, slotIndexes: slotIndexes, itemType: itemType))
+                }
             }
+
+            matches.append(contentsOf: nonOverlapping(shelfMatches))
         }
 
         return matches
+    }
+
+    private func isCompatible(_ cell: SolverCell?, with itemType: ShelfItemType) -> Bool {
+        guard let cell, !cell.isLocked else { return false }
+        return cell.isJoker || cell.type == itemType
+    }
+
+    private func nonOverlapping(_ matches: [MatchGroup]) -> [MatchGroup] {
+        var result: [MatchGroup] = []
+        var usedSlots: Set<Int> = []
+
+        for match in matches.sorted(by: matchPriority) {
+            let slotSet = Set(match.slotIndexes)
+            guard usedSlots.isDisjoint(with: slotSet) else { continue }
+            result.append(match)
+            usedSlots.formUnion(slotSet)
+        }
+
+        return result.sorted { ($0.shelfIndex, $0.slotIndexes.first ?? 0) < ($1.shelfIndex, $1.slotIndexes.first ?? 0) }
+    }
+
+    private func matchPriority(_ lhs: MatchGroup, _ rhs: MatchGroup) -> Bool {
+        if lhs.slotIndexes.count != rhs.slotIndexes.count {
+            return lhs.slotIndexes.count > rhs.slotIndexes.count
+        }
+        return (lhs.slotIndexes.first ?? 0) < (rhs.slotIndexes.first ?? 0)
     }
 
     private func isCleared(_ board: Board) -> Bool {
@@ -563,8 +1020,21 @@ private struct LevelSolvabilitySolver {
     private func stateKey(for board: Board) -> String {
         board
             .map { shelf in
-                shelf.map { $0?.rawValue ?? "-" }.joined(separator: ",")
+                shelf.map { cell in
+                    guard let cell else { return "-" }
+                    let lockPrefix = cell.isLocked ? "L" : ""
+                    let jokerPrefix = cell.isJoker ? "J" : ""
+                    let bombPrefix = cell.isBomb ? "B" : ""
+                    return "\(lockPrefix)\(jokerPrefix)\(bombPrefix)\(cell.type.rawValue)"
+                }.joined(separator: ",")
             }
             .joined(separator: "|")
     }
+}
+
+private struct SolverCell: Equatable {
+    let type: ShelfItemType
+    var isLocked: Bool
+    var isJoker: Bool
+    var isBomb: Bool
 }

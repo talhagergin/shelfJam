@@ -36,7 +36,7 @@ struct LevelSelectView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if viewModel.lives <= 0 {
-                        Label("No lives left. Wait for refill or buy a life with diamonds after a fail.", systemImage: "heart.slash.fill")
+                        Label("No lives left. Wait for refill or open the shop from the main menu.", systemImage: "heart.slash.fill")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.white)
                             .padding(12)

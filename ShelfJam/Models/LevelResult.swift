@@ -19,5 +19,35 @@ struct MatchGroup: Equatable, Hashable {
 
 struct MatchEffect: Identifiable, Equatable {
     let id = UUID()
-    let itemType: ShelfItemType
+    let kind: MatchEffectKind
+
+    init(itemType: ShelfItemType) {
+        self.kind = .match(itemType)
+    }
+
+    init(kind: MatchEffectKind) {
+        self.kind = kind
+    }
+}
+
+enum MatchEffectKind: Equatable {
+    case match(ShelfItemType)
+    case bomb
+    case joker
+    case unlock
+}
+
+extension MatchEffect {
+    var itemType: ShelfItemType {
+        switch kind {
+        case .match(let itemType):
+            itemType
+        case .bomb:
+            .gift
+        case .joker:
+            .book
+        case .unlock:
+            .plant
+        }
+    }
 }

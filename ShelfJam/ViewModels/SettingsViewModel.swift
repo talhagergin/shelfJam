@@ -2,10 +2,16 @@ import Foundation
 import Combine
 
 final class SettingsViewModel: ObservableObject {
-    @Published var soundEnabled: Bool {
+    @Published var backgroundMusicEnabled: Bool {
         didSet {
-            progressStore.isSoundEnabled = soundEnabled
-            BackgroundMusicManager.shared.setEnabled(soundEnabled)
+            progressStore.isBackgroundMusicEnabled = backgroundMusicEnabled
+            BackgroundMusicManager.shared.setEnabled(backgroundMusicEnabled)
+        }
+    }
+
+    @Published var gameSoundEnabled: Bool {
+        didSet {
+            progressStore.isGameSoundEnabled = gameSoundEnabled
         }
     }
 
@@ -17,13 +23,15 @@ final class SettingsViewModel: ObservableObject {
 
     init(progressStore: any ProgressStore) {
         self.progressStore = progressStore
-        self.soundEnabled = progressStore.isSoundEnabled
+        self.backgroundMusicEnabled = progressStore.isBackgroundMusicEnabled
+        self.gameSoundEnabled = progressStore.isGameSoundEnabled
         self.hapticsEnabled = progressStore.isHapticsEnabled
     }
 
     func resetProgress() {
         progressStore.resetProgress()
-        soundEnabled = progressStore.isSoundEnabled
+        backgroundMusicEnabled = progressStore.isBackgroundMusicEnabled
+        gameSoundEnabled = progressStore.isGameSoundEnabled
         hapticsEnabled = progressStore.isHapticsEnabled
     }
 }

@@ -14,23 +14,27 @@ final class GameViewModel: ObservableObject {
     @Published var invalidTargetPosition: Position?
     @Published var hintPositions: Set<Position> = []
     @Published var hintMessage: String?
+    @Published var unlockMessage: String?
     @Published var showComboText = false
     @Published private(set) var lives: Int
     @Published private(set) var diamonds: Int
     @Published private(set) var earnedDiamonds = 0
     @Published private(set) var rewardedMoveUsesLeft = 1
     @Published private(set) var isRewardedAdLoading = false
+    @Published private(set) var timeRemaining: TimeInterval
+    @Published private(set) var isTimerPaused = false
 
     private(set) var undoStack: [MoveRecord] = []
-    @Published private(set) var undoUsesLeft = GameConstants.maxUndoUses
-    @Published private(set) var hintUsesLeft = GameConstants.maxHintUses
-    @Published private(set) var shuffleUsesLeft = GameConstants.maxShuffleUses
+    @Published private(set) var undoUsesLeft: Int
+    @Published private(set) var hintUsesLeft: Int
+    @Published private(set) var shuffleUsesLeft: Int
 
     private let progressStore: any ProgressStore
     private let matchResolver: MatchResolver
     private let haptics: HapticsManaging
     private let sound: SoundManaging
     private let rewardedAdService: any RewardedAdManaging
+    private var timerCancellable: AnyCancellable?
 
     init(
         level: ShelfLevel,
@@ -43,6 +47,7 @@ final class GameViewModel: ObservableObject {
         self.level = level
         self.shelves = level.shelves
         self.movesLeft = level.moveLimit
+        self.timeRemaining = level.timeLimit
         self.progressStore = progressStore
         self.matchResolver = matchResolver
         self.haptics = haptics
@@ -50,6 +55,9 @@ final class GameViewModel: ObservableObject {
         self.rewardedAdService = rewardedAdService
         self.lives = progressStore.getLives()
         self.diamonds = progressStore.getDiamonds()
+        self.undoUsesLeft = GameConstants.maxUndoUses + progressStore.consumeUndoInventory(2)
+        self.hintUsesLeft = GameConstants.maxHintUses + progressStore.consumeHintInventory(2)
+        self.shuffleUsesLeft = GameConstants.maxShuffleUses + progressStore.consumeShuffleInventory(1)
     }
 
     var selectedItemID: UUID? {
@@ -70,15 +78,21 @@ final class GameViewModel: ObservableObject {
     }
 
     var canShuffle: Bool {
-        shuffleUsesLeft > 0 && status == .playing && shelves.flatMap { $0 }.compactMap { $0 }.count > 1
+        shuffleUsesLeft > 0
+            && status == .playing
+            && shelves.flatMap { $0 }.compactMap { $0 }.filter { !$0.isLocked }.count > 1
     }
 
-    var isSoundEnabled: Bool {
-        progressStore.isSoundEnabled
+    var isBackgroundMusicEnabled: Bool {
+        progressStore.isBackgroundMusicEnabled
     }
 
     var canWatchRewardedAdForMoves: Bool {
         status == .failed && rewardedMoveUsesLeft > 0 && !isRewardedAdLoading
+    }
+
+    var hasLockedItems: Bool {
+        shelves.flatMap { $0 }.compactMap { $0 }.contains { $0.isLocked }
     }
 
     func item(at position: Position) -> ShelfItem? {
@@ -110,6 +124,7 @@ final class GameViewModel: ObservableObject {
         selectedPosition = position
         hintPositions = []
         hintMessage = nil
+        unlockMessage = nil
         haptics.selection()
     }
 
@@ -146,6 +161,7 @@ final class GameViewModel: ObservableObject {
         selectedPosition = nil
         hintPositions = []
         hintMessage = nil
+        unlockMessage = nil
         movesLeft -= 1
 
         haptics.selection()
@@ -155,6 +171,49 @@ final class GameViewModel: ObservableObject {
         sound.playMove()
         checkMatches()
         checkLevelEnd()
+    }
+
+    func startTimer() {
+        guard timerCancellable == nil else {
+            resumeTimer()
+            return
+        }
+        isTimerPaused = false
+        timerCancellable = Timer
+            .publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.tickTimer()
+            }
+    }
+
+    func stopTimer() {
+        timerCancellable?.cancel()
+        timerCancellable = nil
+        isTimerPaused = true
+    }
+
+    func pauseTimer() {
+        isTimerPaused = true
+    }
+
+    func resumeTimer() {
+        guard status == .playing else { return }
+        isTimerPaused = false
+    }
+
+    func tickTimer(by seconds: TimeInterval = 1) {
+        guard level.hasTimeLimit, status == .playing, !isTimerPaused else { return }
+        let wasAboveWarning = timeRemaining > GameConstants.lowTimeWarningThreshold
+        timeRemaining = max(0, timeRemaining - seconds)
+
+        if wasAboveWarning, timeRemaining <= GameConstants.lowTimeWarningThreshold, timeRemaining > 0 {
+            haptics.warning()
+        }
+
+        if timeRemaining <= 0 {
+            failLevel()
+        }
     }
 
     func checkMatches() {
@@ -177,8 +236,13 @@ final class GameViewModel: ObservableObject {
                 group.slotIndexes.map { Position(shelfIndex: group.shelfIndex, slotIndex: $0) }
             }
         )
-        recentMatchEffects = Array(Set(resolvedMatches.map(\.itemType)))
+
+        var effects = Array(Set(resolvedMatches.map(\.itemType)))
             .map { MatchEffect(itemType: $0) }
+        if containsJoker(in: resolvedMatches) {
+            effects.append(MatchEffect(kind: .joker))
+        }
+        recentMatchEffects = effects
 
         let baseScore = resolvedMatches.reduce(0) { total, group in
             total + matchResolver.baseScore(for: group.slotIndexes.count)
@@ -191,13 +255,18 @@ final class GameViewModel: ObservableObject {
             showComboText = true
         }
 
+        unlockItemsIfNeeded(after: resolvedMatches)
         haptics.match()
         sound.playMatch()
 
-        for group in resolvedMatches {
-            for slotIndex in group.slotIndexes {
-                shelves[group.shelfIndex][slotIndex] = nil
-            }
+        for position in matchedPositions {
+            shelves[position.shelfIndex][position.slotIndex] = nil
+        }
+
+        let cascadedMatches = matchResolver.findMatches(in: shelves)
+        if cascadedMatches.isNotEmpty {
+            clearMatches(cascadedMatches)
+            return
         }
 
         if resolvedMatches.count < 2 {
@@ -222,7 +291,10 @@ final class GameViewModel: ObservableObject {
 
     func shuffle() {
         guard canShuffle else { return }
-        let occupiedPositions = allPositions().filter { item(at: $0) != nil }
+        let occupiedPositions = allPositions().filter { position in
+            guard let item = item(at: position) else { return false }
+            return !item.isLocked
+        }
         var shuffledItems = occupiedPositions.compactMap { item(at: $0) }.shuffled()
         guard shuffledItems.count == occupiedPositions.count else { return }
 
@@ -247,6 +319,7 @@ final class GameViewModel: ObservableObject {
         selectedPosition = nil
         hintPositions = []
         hintMessage = nil
+        unlockMessage = nil
         haptics.warning()
         sound.playMove()
         checkMatches()
@@ -264,6 +337,7 @@ final class GameViewModel: ObservableObject {
 
     func watchRewardedAdForExtraMoves() {
         guard canWatchRewardedAdForMoves else { return }
+        pauseTimer()
         isRewardedAdLoading = true
         Task { @MainActor in
             let didEarnReward = await rewardedAdService.showRewardedExtraMovesAd()
@@ -275,6 +349,7 @@ final class GameViewModel: ObservableObject {
             rewardedMoveUsesLeft -= 1
             movesLeft += 5
             status = .playing
+            resumeTimer()
             haptics.success()
             sound.playWin()
         }
@@ -299,8 +374,9 @@ final class GameViewModel: ObservableObject {
 
     func undo() {
         guard canUndo, let record = undoStack.popLast() else { return }
+        let undoMovesLeft = max(0, movesLeft - 1)
         shelves = record.previousShelvesSnapshot
-        movesLeft = record.previousMovesLeft
+        movesLeft = undoMovesLeft
         score = record.previousScore
         comboCount = record.previousCombo
         selectedPosition = nil
@@ -309,33 +385,47 @@ final class GameViewModel: ObservableObject {
         recentMatchEffects = []
         hintPositions = []
         hintMessage = nil
+        unlockMessage = nil
         undoUsesLeft -= 1
         haptics.selection()
+        checkLevelEnd()
+    }
+
+    func abandonLevel() {
+        guard status == .playing else { return }
+        stopTimer()
+        progressStore.loseLife()
+        refreshEconomy()
+        status = .failed
     }
 
     func retry() {
         shelves = level.shelves
         selectedPosition = nil
         movesLeft = level.moveLimit
+        timeRemaining = level.timeLimit
         score = 0
         comboCount = 0
         undoStack = []
-        undoUsesLeft = GameConstants.maxUndoUses
-        hintUsesLeft = GameConstants.maxHintUses
-        shuffleUsesLeft = GameConstants.maxShuffleUses
+        undoUsesLeft = GameConstants.maxUndoUses + progressStore.consumeUndoInventory(2)
+        hintUsesLeft = GameConstants.maxHintUses + progressStore.consumeHintInventory(2)
+        shuffleUsesLeft = GameConstants.maxShuffleUses + progressStore.consumeShuffleInventory(1)
         rewardedMoveUsesLeft = 1
         isRewardedAdLoading = false
         matchedPositions = []
         recentMatchEffects = []
         hintPositions = []
         hintMessage = nil
+        unlockMessage = nil
         earnedDiamonds = 0
         status = .playing
+        startTimer()
         refreshEconomy()
     }
 
     func completeLevel() {
         guard status == .playing else { return }
+        stopTimer()
         let stars = calculateStars()
         let finalScore = score + movesLeft * GameConstants.endLevelMoveBonus
         let previousBestStars = progressStore.getBestStars(levelID: level.id)
@@ -355,6 +445,7 @@ final class GameViewModel: ObservableObject {
 
     func failLevel() {
         guard status == .playing else { return }
+        stopTimer()
         progressStore.loseLife()
         refreshEconomy()
         status = .failed
@@ -383,6 +474,11 @@ final class GameViewModel: ObservableObject {
         matchedPositions = []
         recentMatchEffects = []
         showComboText = false
+        unlockMessage = nil
+    }
+
+    deinit {
+        timerCancellable?.cancel()
     }
 
     private func findHint() -> HintMove? {
@@ -398,6 +494,66 @@ final class GameViewModel: ObservableObject {
             }
         }
         return nil
+    }
+
+    private func unlockItemsIfNeeded(after matches: [MatchGroup]) {
+        let fiveMatchTypes = Set(matches.filter { $0.slotIndexes.count >= 5 }.map(\.itemType))
+        let adjacentLockTypes = Set(matches.compactMap { match -> ShelfItemType? in
+            let matchedPositions = match.slotIndexes.map {
+                Position(shelfIndex: match.shelfIndex, slotIndex: $0)
+            }
+            let touchesMatchingLock = matchedPositions.contains { position in
+                adjacentPositions(to: position).contains { adjacent in
+                    guard let adjacentItem = item(at: adjacent) else { return false }
+                    return adjacentItem.isLocked && adjacentItem.type == match.itemType
+                }
+            }
+            return touchesMatchingLock ? match.itemType : nil
+        })
+        let unlockedTypes = fiveMatchTypes.union(adjacentLockTypes)
+        guard unlockedTypes.isNotEmpty else { return }
+
+        var unlockedCount = 0
+        for shelfIndex in shelves.indices {
+            for slotIndex in shelves[shelfIndex].indices {
+                guard var item = shelves[shelfIndex][slotIndex],
+                      item.isLocked,
+                      unlockedTypes.contains(item.type)
+                else { continue }
+                item.isLocked = false
+                shelves[shelfIndex][slotIndex] = item
+                unlockedCount += 1
+            }
+        }
+
+        if unlockedCount > 0 {
+            let bonus = unlockedCount * GameConstants.unlockBonus
+            score += bonus
+            let names = unlockedTypes.map(\.displayName).sorted().joined(separator: ", ")
+            unlockMessage = "\(names) unlocked! +\(bonus)"
+            recentMatchEffects.append(MatchEffect(kind: .unlock))
+            haptics.success()
+        }
+    }
+
+    private func containsJoker(in matches: [MatchGroup]) -> Bool {
+        matches.contains { group in
+            group.slotIndexes.contains { slotIndex in
+                shelves[group.shelfIndex][slotIndex]?.isJoker == true
+            }
+        }
+    }
+
+    private func adjacentPositions(to position: Position) -> [Position] {
+        [
+            Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex - 1),
+            Position(shelfIndex: position.shelfIndex, slotIndex: position.slotIndex + 1),
+            Position(shelfIndex: position.shelfIndex - 1, slotIndex: position.slotIndex),
+            Position(shelfIndex: position.shelfIndex + 1, slotIndex: position.slotIndex)
+        ].filter { adjacent in
+            shelves.indices.contains(adjacent.shelfIndex)
+                && shelves[adjacent.shelfIndex].indices.contains(adjacent.slotIndex)
+        }
     }
 
     private func allPositions() -> [Position] {

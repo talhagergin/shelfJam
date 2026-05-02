@@ -30,7 +30,7 @@ struct MatchEffectOverlay: View {
         }
         .allowsHitTesting(false)
         .onAppear {
-            withAnimation(.easeOut(duration: 1.65)) {
+            withAnimation(.easeOut(duration: 2.3)) {
                 isAnimating = true
             }
         }
@@ -39,31 +39,41 @@ struct MatchEffectOverlay: View {
     private func carDriveEffect(in size: CGSize) -> some View {
         HStack(spacing: 8) {
             Text("🚗")
-            Text("💨")
-                .opacity(isAnimating ? 0.2 : 0.9)
+            HStack(spacing: -8) {
+                Text("💨")
+                Text("💨")
+                    .opacity(0.72)
+                Text("💨")
+                    .opacity(0.46)
+            }
+            .opacity(isAnimating ? 0.12 : 0.95)
         }
-        .font(.system(size: 54))
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+        .font(.system(size: 82))
+        .shadow(color: .black.opacity(0.24), radius: 12, y: 6)
         .offset(
-            x: isAnimating ? size.width + 120 : -150,
+            x: isAnimating ? -210 : size.width + 180,
             y: size.height * 0.28
         )
-        .scaleEffect(isAnimating ? 1.18 : 0.88)
+        .scaleEffect(isAnimating ? 1.22 : 0.78)
         .opacity(isAnimating ? 0 : 1)
     }
 
     private var confettiEffect: some View {
         ZStack {
-            ForEach(0..<14, id: \.self) { index in
+            Text("🎁")
+                .font(.system(size: 78))
+                .scaleEffect(isAnimating ? 1.45 : 0.72)
+                .opacity(isAnimating ? 0 : 1)
+            ForEach(0..<22, id: \.self) { index in
                 Text(confettiSymbol(for: index))
-                    .font(.system(size: index.isMultiple(of: 3) ? 28 : 20))
+                    .font(.system(size: index.isMultiple(of: 3) ? 42 : 30))
                     .rotationEffect(.degrees(isAnimating ? Double(index * 27) : 0))
                     .offset(
-                        x: isAnimating ? CGFloat((index % 7) - 3) * 42 : 0,
-                        y: isAnimating ? CGFloat((index / 7) - 1) * 58 : 0
+                        x: isAnimating ? CGFloat((index % 11) - 5) * 34 : 0,
+                        y: isAnimating ? CGFloat((index / 11) - 1) * 88 : 0
                     )
-                    .scaleEffect(isAnimating ? 1.45 : 0.2)
-                    .opacity(isAnimating ? 0.05 : 1)
+                    .scaleEffect(isAnimating ? 1.7 : 0.15)
+                    .opacity(isAnimating ? 0.03 : 1)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -75,15 +85,15 @@ struct MatchEffectOverlay: View {
 
     private var bounceEffect: some View {
         ZStack {
-            ForEach(0..<4, id: \.self) { index in
+            ForEach(0..<6, id: \.self) { index in
                 Text("⚽️")
-                    .font(.system(size: 34))
+                    .font(.system(size: 50))
                     .offset(
-                        x: CGFloat(index - 2) * 38,
-                        y: isAnimating ? CGFloat(abs(index - 2)) * 18 - 110 : 30
+                        x: CGFloat(index - 3) * 34,
+                        y: isAnimating ? CGFloat(abs(index - 3)) * 20 - 150 : 38
                     )
-                    .scaleEffect(isAnimating ? 0.4 : 1.2)
-                    .opacity(isAnimating ? 0.05 : 1)
+                    .scaleEffect(isAnimating ? 0.36 : 1.35)
+                    .opacity(isAnimating ? 0.03 : 1)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -91,17 +101,21 @@ struct MatchEffectOverlay: View {
 
     private func burstEffect(symbols: [String], color: Color) -> some View {
         ZStack {
-            ForEach(0..<10, id: \.self) { index in
+            Text(symbols.first ?? "✨")
+                .font(.system(size: 76))
+                .scaleEffect(isAnimating ? 1.5 : 0.55)
+                .opacity(isAnimating ? 0 : 0.95)
+            ForEach(0..<16, id: \.self) { index in
                 Text(symbols[index % symbols.count])
-                    .font(.system(size: index.isMultiple(of: 4) ? 30 : 22))
+                    .font(.system(size: index.isMultiple(of: 4) ? 46 : 34))
                     .foregroundStyle(color)
                     .offset(
-                        x: isAnimating ? CGFloat((index % 5) - 2) * 44 : 0,
-                        y: isAnimating ? CGFloat((index / 5) - 1) * 62 : 0
+                        x: isAnimating ? CGFloat((index % 8) - 4) * 34 : 0,
+                        y: isAnimating ? CGFloat((index / 8) - 1) * 92 : 0
                     )
                     .rotationEffect(.degrees(isAnimating ? Double(index * 21) : 0))
-                    .scaleEffect(isAnimating ? 1.38 : 0.1)
-                    .opacity(isAnimating ? 0.04 : 0.95)
+                    .scaleEffect(isAnimating ? 1.55 : 0.1)
+                    .opacity(isAnimating ? 0.03 : 0.95)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -7,7 +7,7 @@ struct ItemTileView: View {
     let position: Position
 
     var body: some View {
-        Text(item.isHidden ? "?" : item.type.icon)
+        Text(displayIcon)
             .font(.system(size: 29))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
@@ -35,12 +35,48 @@ struct ItemTileView: View {
                         .blur(radius: 5)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if item.isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2.weight(.black))
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(.black.opacity(0.48), in: Circle())
+                        .padding(5)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if item.isBomb || item.isJoker {
+                    Text(item.type.icon)
+                        .font(.system(size: 12))
+                        .padding(5)
+                        .background(.white.opacity(0.78), in: Circle())
+                        .padding(5)
+                }
+            }
+            .saturation(item.isLocked ? 0.45 : 1)
+            .brightness(item.isLocked ? -0.05 : 0)
             .scaleEffect(isMatched ? 1.34 : (isSelected ? 1.1 : 1))
             .rotationEffect(.degrees(isSelected ? -2 : 0))
             .opacity(isMatched ? 0.04 : 1)
             .shadow(color: isSelected ? item.type.color.opacity(0.55) : item.type.color.opacity(0.20), radius: isSelected ? 16 : 7, y: isSelected ? 6 : 4)
             .animation(.spring(response: 0.34, dampingFraction: 0.62), value: isSelected)
             .animation(.easeInOut(duration: 0.82), value: isMatched)
-            .accessibilityLabel("\(item.type.displayName) item, shelf \(position.shelfIndex + 1), slot \(position.slotIndex + 1)")
+            .accessibilityLabel("\(accessibilityName), shelf \(position.shelfIndex + 1), slot \(position.slotIndex + 1)")
+    }
+
+    private var displayIcon: String {
+        if item.isHidden { return "?" }
+        if item.isBomb { return "💣" }
+        if item.isJoker { return "🃏" }
+        return item.type.icon
+    }
+
+    private var accessibilityName: String {
+        var parts = [item.type.displayName]
+        if item.isBomb { parts.append("bomb") }
+        if item.isJoker { parts.append("joker") }
+        if item.isLocked { parts.append("locked") }
+        return parts.joined(separator: ", ")
     }
 }

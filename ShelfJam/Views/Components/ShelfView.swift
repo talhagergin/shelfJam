@@ -7,15 +7,18 @@ struct ShelfView: View {
     let matchedPositions: Set<Position>
     let hintPositions: Set<Position>
     let invalidTargetPosition: Position?
+    var preferredHeight: CGFloat = 92
     let onTap: (Position) -> Void
 
     var body: some View {
         GeometryReader { proxy in
             let spacing = proxy.size.width < 350 ? 6.0 : 8.0
             let horizontalPadding = proxy.size.width < 350 ? 8.0 : 10.0
+            let availableSlotHeight = max(36, proxy.size.height - 34)
             let slotSize = min(
                 64,
-                max(44, (proxy.size.width - horizontalPadding * 2 - spacing * CGFloat(max(shelf.count - 1, 0))) / CGFloat(max(shelf.count, 1)))
+                availableSlotHeight,
+                max(36, (proxy.size.width - horizontalPadding * 2 - spacing * CGFloat(max(shelf.count - 1, 0))) / CGFloat(max(shelf.count, 1)))
             )
 
             VStack(spacing: 7) {
@@ -61,7 +64,7 @@ struct ShelfView: View {
             }
             .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
         }
-        .frame(height: 92)
+        .frame(height: preferredHeight)
     }
 
     private var shelfBackground: some View {

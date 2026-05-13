@@ -18,7 +18,12 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "lock.fill",
             title: "Locked Items",
-            body: "When locks appear, unlock them by matching the same item beside the lock or by making a five-item match of that type."
+            body: "When locks appear, make a match next to the locked item to open that lock. A five-item match opens all locks of that item type."
+        ),
+        OnboardingPage(
+            icon: "star.fill",
+            title: "Joker Stars",
+            body: "A star can complete any matching group, so saving it for the right shelf can rescue a tight level."
         ),
         OnboardingPage(
             icon: "bag.fill",
@@ -111,4 +116,3 @@ private struct OnboardingPage {
     let title: String
     let body: String
 }
-

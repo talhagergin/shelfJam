@@ -35,6 +35,7 @@ enum MatchEffectKind: Equatable {
     case bomb
     case joker
     case unlock
+    case box
 }
 
 extension MatchEffect {
@@ -48,6 +49,8 @@ extension MatchEffect {
             .book
         case .unlock:
             .plant
+        case .box:
+            .gift
         }
     }
 }

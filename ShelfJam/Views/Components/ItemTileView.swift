@@ -7,8 +7,7 @@ struct ItemTileView: View {
     let position: Position
 
     var body: some View {
-        Text(displayIcon)
-            .font(.system(size: 29))
+        displayContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: AppStyle.tileCornerRadius, style: .continuous)
@@ -65,11 +64,30 @@ struct ItemTileView: View {
             .accessibilityLabel("\(accessibilityName), shelf \(position.shelfIndex + 1), slot \(position.slotIndex + 1)")
     }
 
-    private var displayIcon: String {
-        if item.isHidden { return "?" }
-        if item.isBomb { return "💣" }
-        if item.isJoker { return "🃏" }
-        return item.type.icon
+    @ViewBuilder
+    private var displayContent: some View {
+        if item.isHidden {
+            Text("📦")
+                .font(.system(size: 30))
+        } else if item.isBomb {
+            Text("💣")
+                .font(.system(size: 29))
+        } else if item.isJoker {
+            Text("⭐️")
+                .font(.system(size: 31))
+        } else {
+            if let assetName = item.type.assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(8)
+                    .shadow(color: .black.opacity(0.16), radius: 5, y: 3)
+            } else {
+                Text(item.type.icon)
+                    .font(.system(size: 29))
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            }
+        }
     }
 
     private var accessibilityName: String {

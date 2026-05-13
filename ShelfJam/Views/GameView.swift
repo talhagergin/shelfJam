@@ -163,31 +163,16 @@ struct GameView: View {
                 viewModel.clearTransientEffects()
             }
         }
+        .onChange(of: viewModel.recentMatchEffects) { _, newValue in
+            guard newValue.isNotEmpty, viewModel.matchedPositions.isEmpty else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.45) {
+                viewModel.clearTransientEffects()
+            }
+        }
     }
 
     private var levelBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.18, green: 0.11, blue: 0.38),
-                    Color(red: 0.16, green: 0.44, blue: 0.62),
-                    Color(red: 0.98, green: 0.52, blue: 0.47),
-                    Color(red: 1.00, green: 0.75, blue: 0.38)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            LinearGradient(
-                colors: [
-                    viewModel.level.theme.accent.opacity(colorScheme == .dark ? 0.24 : 0.32),
-                    Color.white.opacity(colorScheme == .dark ? 0.04 : 0.16),
-                    Color.black.opacity(colorScheme == .dark ? 0.22 : 0.02)
-                ],
-                startPoint: .topTrailing,
-                endPoint: .bottomLeading
-            )
-        }
-        .ignoresSafeArea()
+        ThemedRoomBackdrop(theme: viewModel.level.theme, colorScheme: colorScheme)
     }
 
     private var topBar: some View {
@@ -263,15 +248,16 @@ struct GameView: View {
             let shelfHeight = shelfHeight(containerHeight: proxy.size.height, spacing: spacing)
             VStack(spacing: spacing) {
                 ForEach(viewModel.shelves.indices, id: \.self) { shelfIndex in
-                    ShelfView(
-                        shelf: viewModel.shelves[shelfIndex],
-                        shelfIndex: shelfIndex,
-                        selectedPosition: viewModel.selectedPosition,
-                        matchedPositions: viewModel.matchedPositions,
-                        hintPositions: viewModel.hintPositions,
-                        invalidTargetPosition: viewModel.invalidTargetPosition,
-                        preferredHeight: shelfHeight
-                    ) { position in
+                        ShelfView(
+                            shelf: viewModel.shelves[shelfIndex],
+                            shelfIndex: shelfIndex,
+                            selectedPosition: viewModel.selectedPosition,
+                            matchedPositions: viewModel.matchedPositions,
+                            hintPositions: viewModel.hintPositions,
+                            invalidTargetPosition: viewModel.invalidTargetPosition,
+                            theme: viewModel.level.theme,
+                            preferredHeight: shelfHeight
+                        ) { position in
                         handleTap(position)
                     }
                 }
@@ -507,5 +493,294 @@ private struct LockTutorialOverlay: View {
             }
             .padding(24)
         }
+    }
+}
+
+private struct ThemedRoomBackdrop: View {
+    let theme: ShelfTheme
+    let colorScheme: ColorScheme
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                if let assetName = theme.backgroundAssetName {
+                    Image(assetName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                        .overlay {
+                            LinearGradient(
+                                colors: [
+                                    .black.opacity(colorScheme == .dark ? 0.36 : 0.14),
+                                    theme.accent.opacity(0.06),
+                                    .black.opacity(colorScheme == .dark ? 0.28 : 0.08)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
+                } else {
+                    LinearGradient(colors: theme.roomGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+
+                wallPattern(size: proxy.size)
+                    .opacity(theme.backgroundAssetName == nil ? (colorScheme == .dark ? 0.14 : 0.22) : 0.06)
+
+                decorLayer(size: proxy.size)
+                    .opacity(theme.backgroundAssetName == nil ? 1 : 0.34)
+
+                VStack(spacing: 0) {
+                    Spacer()
+                    floorBand
+                        .frame(height: max(140, proxy.size.height * 0.27))
+                }
+
+                foregroundMotif(size: proxy.size)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private func wallPattern(size: CGSize) -> some View {
+        let columns = max(5, Int(size.width / 74))
+        let rows = max(5, Int(size.height / 92))
+
+        return ZStack {
+            ForEach(0..<rows, id: \.self) { row in
+                ForEach(0..<columns, id: \.self) { column in
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(.white.opacity(0.18), lineWidth: 1)
+                        .frame(width: 48, height: 34)
+                        .offset(x: CGFloat(column) * 74 - size.width * 0.48 + CGFloat(row % 2) * 26,
+                                y: CGFloat(row) * 92 - size.height * 0.42)
+                }
+            }
+        }
+    }
+
+    private func decorLayer(size: CGSize) -> some View {
+        ZStack {
+            ForEach(Array(theme.decorSymbols.enumerated()), id: \.offset) { index, symbol in
+                Image(systemName: symbol)
+                    .font(.system(size: size.width < 380 ? 24 : 30, weight: .black))
+                    .foregroundStyle(.white.opacity(0.18))
+                    .rotationEffect(.degrees(index.isMultiple(of: 2) ? -9 : 12))
+                    .offset(x: decorOffsetX(index: index, width: size.width),
+                            y: decorOffsetY(index: index, height: size.height))
+            }
+        }
+    }
+
+    private var floorBand: some View {
+        LinearGradient(
+            colors: [
+                theme.accent.opacity(0.02),
+                theme.accent.opacity(0.32),
+                Color(red: 1.00, green: 0.62, blue: 0.34).opacity(0.72)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.white.opacity(0.18))
+                .frame(height: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func foregroundMotif(size: CGSize) -> some View {
+        switch theme.foregroundMotif {
+        case "cabinet":
+            motifCabinet(size: size)
+        case "blocks":
+            motifBlocks(size: size)
+        case "bookcase":
+            motifBookcase(size: size)
+        case "leaves":
+            motifLeaves(size: size)
+        case "tiles":
+            motifTiles(size: size)
+        case "lights":
+            motifLights(size: size)
+        case "workbench":
+            motifWorkbench(size: size)
+        case "hills":
+            motifHills(size: size)
+        default:
+            motifDesk(size: size)
+        }
+    }
+
+    private func motifCabinet(size: CGSize) -> some View {
+        HStack(spacing: 10) {
+            ForEach(0..<3, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white.opacity(0.10))
+                    .frame(width: size.width * 0.22, height: 72)
+                    .overlay(alignment: .bottomTrailing) {
+                        Circle()
+                            .fill(.white.opacity(0.28))
+                            .frame(width: 8, height: 8)
+                            .padding(14)
+                    }
+                    .offset(y: index == 1 ? 10 : 0)
+            }
+        }
+        .offset(y: -size.height * 0.34)
+    }
+
+    private func motifBlocks(size: CGSize) -> some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            ForEach(0..<5, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(blockColor(for: index).opacity(0.36))
+                    .frame(width: 34, height: CGFloat(24 + (index % 3) * 12))
+                    .rotationEffect(.degrees(index.isMultiple(of: 2) ? -8 : 7))
+            }
+        }
+        .offset(x: -size.width * 0.26, y: size.height * 0.34)
+    }
+
+    private func motifBookcase(size: CGSize) -> some View {
+        VStack(spacing: 8) {
+            ForEach(0..<3, id: \.self) { shelf in
+                HStack(spacing: 5) {
+                    ForEach(0..<8, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(bookColor(for: index + shelf).opacity(0.32))
+                            .frame(width: 12, height: CGFloat(30 + ((index + shelf) % 3) * 10))
+                    }
+                }
+                Capsule()
+                    .fill(Color(red: 0.46, green: 0.22, blue: 0.12).opacity(0.38))
+                    .frame(width: 142, height: 7)
+            }
+        }
+        .offset(x: size.width * 0.26, y: -size.height * 0.30)
+    }
+
+    private func motifLeaves(size: CGSize) -> some View {
+        ZStack {
+            ForEach(0..<7, id: \.self) { index in
+                Capsule()
+                    .fill(Color.green.opacity(0.18 + Double(index % 3) * 0.05))
+                    .frame(width: 32, height: 82)
+                    .rotationEffect(.degrees(Double(index) * 31 - 88))
+                    .offset(x: CGFloat(index - 3) * 28, y: CGFloat(index % 2) * 18)
+            }
+        }
+        .offset(x: -size.width * 0.32, y: -size.height * 0.28)
+    }
+
+    private func motifTiles(size: CGSize) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(38), spacing: 7), count: 4), spacing: 7) {
+            ForEach(0..<16, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill((index.isMultiple(of: 2) ? Color.cyan : Color.white).opacity(0.16))
+                    .frame(width: 38, height: 38)
+            }
+        }
+        .offset(x: size.width * 0.28, y: -size.height * 0.31)
+    }
+
+    private func motifLights(size: CGSize) -> some View {
+        HStack(spacing: 12) {
+            ForEach(0..<6, id: \.self) { index in
+                Circle()
+                    .fill((index.isMultiple(of: 2) ? Color.yellow : Color.pink).opacity(0.34))
+                    .frame(width: 18, height: 18)
+                    .shadow(color: .yellow.opacity(0.28), radius: 10)
+            }
+        }
+        .padding(14)
+        .background(.white.opacity(0.08), in: Capsule())
+        .offset(y: -size.height * 0.36)
+    }
+
+    private func motifWorkbench(size: CGSize) -> some View {
+        VStack(spacing: 9) {
+            Capsule()
+                .fill(.orange.opacity(0.32))
+                .frame(width: size.width * 0.58, height: 14)
+            HStack(spacing: 16) {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                Image(systemName: "gearshape.2.fill")
+                Image(systemName: "car.fill")
+            }
+            .font(.title3.weight(.black))
+            .foregroundStyle(.white.opacity(0.18))
+        }
+        .offset(y: size.height * 0.35)
+    }
+
+    private func motifHills(size: CGSize) -> some View {
+        ZStack(alignment: .bottom) {
+            Triangle()
+                .fill(Color.green.opacity(0.22))
+                .frame(width: size.width * 0.54, height: 130)
+                .offset(x: -size.width * 0.20)
+            Triangle()
+                .fill(Color.mint.opacity(0.18))
+                .frame(width: size.width * 0.48, height: 108)
+                .offset(x: size.width * 0.18)
+            Image(systemName: "tent.fill")
+                .font(.system(size: 46, weight: .black))
+                .foregroundStyle(.orange.opacity(0.28))
+                .offset(x: size.width * 0.27, y: -12)
+        }
+        .offset(y: size.height * 0.32)
+    }
+
+    private func motifDesk(size: CGSize) -> some View {
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(Color.white.opacity(0.20))
+                .frame(width: size.width * 0.62, height: 16)
+            HStack(spacing: 20) {
+                Image(systemName: "folder.fill")
+                Image(systemName: "pencil")
+                Image(systemName: "paperclip")
+            }
+            .font(.title2.weight(.black))
+            .foregroundStyle(.white.opacity(0.18))
+        }
+        .offset(y: size.height * 0.35)
+    }
+
+    private func decorOffsetX(index: Int, width: CGFloat) -> CGFloat {
+        switch index {
+        case 0: -width * 0.34
+        case 1: width * 0.34
+        default: width * 0.08
+        }
+    }
+
+    private func decorOffsetY(index: Int, height: CGFloat) -> CGFloat {
+        switch index {
+        case 0: -height * 0.34
+        case 1: -height * 0.18
+        default: height * 0.28
+        }
+    }
+
+    private func blockColor(for index: Int) -> Color {
+        [Color.pink, .yellow, .cyan, .mint, .purple][index % 5]
+    }
+
+    private func bookColor(for index: Int) -> Color {
+        [Color.indigo, .purple, .orange, .brown][index % 4]
+    }
+}
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }

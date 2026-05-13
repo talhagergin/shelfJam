@@ -19,17 +19,37 @@ struct ShopView: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.16, green: 0.11, blue: 0.28),
-                        Color(red: 0.16, green: 0.38, blue: 0.47),
-                        Color(red: 1.00, green: 0.56, blue: 0.36)
+                        Color(red: 0.19, green: 0.08, blue: 0.36),
+                        Color(red: 0.42, green: 0.18, blue: 0.66),
+                        Color(red: 1.00, green: 0.78, blue: 0.22)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
+                .overlay {
+                    Circle()
+                        .fill(.yellow.opacity(0.20))
+                        .frame(width: 260, height: 260)
+                        .blur(radius: 30)
+                        .offset(x: 150, y: -260)
+                }
 
                 ScrollView {
                     VStack(spacing: 18) {
+                        VStack(spacing: 6) {
+                            Text("Boost Shop")
+                                .font(.system(size: 34, weight: .black, design: .rounded))
+                                .foregroundStyle(
+                                    LinearGradient(colors: [.yellow, .orange, .pink], startPoint: .leading, endPoint: .trailing)
+                                )
+                            Text("Spend diamonds on one more try, one sharper move, one better run.")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.82))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.top, 12)
+
                         walletCard
 
                         shopSection(title: "Lives", subtitle: "Keep playing when a challenge bites back.") {
@@ -90,11 +110,17 @@ struct ShopView: View {
                     .padding(20)
                 }
             }
-            .navigationTitle("Shop")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline.weight(.black))
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
             .onAppear(perform: refresh)
@@ -107,8 +133,13 @@ struct ShopView: View {
             walletPill(icon: "diamond.fill", value: "\(diamonds)", tint: .cyan)
             walletPill(icon: "sparkles", value: "\(undoInventory + hintInventory + shuffleInventory)", tint: .yellow)
         }
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(16)
+        .background(Color(red: 0.16, green: 0.06, blue: 0.30).opacity(0.82), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.yellow.opacity(0.28), lineWidth: 1.4)
+        }
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
     }
 
     private func walletPill(icon: String, value: String, tint: Color) -> some View {
@@ -116,7 +147,7 @@ struct ShopView: View {
             Image(systemName: icon).foregroundStyle(tint)
             Text(value).font(.headline.weight(.black))
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(.white)
         .frame(maxWidth: .infinity)
     }
 
@@ -125,19 +156,24 @@ struct ShopView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.title3.weight(.black))
+                    .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
             }
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.78), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color(red: 0.21, green: 0.08, blue: 0.38).opacity(0.78), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(.white.opacity(0.45), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [.white.opacity(0.36), .yellow.opacity(0.24), .purple.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1.2
+                )
         }
+        .shadow(color: .black.opacity(0.14), radius: 14, y: 8)
     }
 
     private func shopRow(icon: String, tint: Color, title: String, subtitle: String, buttonTitle: String, action: @escaping () -> Void) -> some View {
@@ -151,19 +187,24 @@ struct ShopView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.66))
             }
 
             Spacer()
 
             Button(buttonTitle, action: action)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(ShopBuyButtonStyle())
                 .controlSize(.small)
         }
         .padding(12)
-        .background(.white.opacity(0.58), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        }
     }
 
     private func buyLifeWithDiamonds() {
@@ -243,3 +284,17 @@ private enum ShopAdAction {
     case diamonds
 }
 
+private struct ShopBuyButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.caption.weight(.black))
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .foregroundStyle(Color(red: 0.18, green: 0.07, blue: 0.30))
+            .background(
+                LinearGradient(colors: [.yellow, .orange], startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: Capsule()
+            )
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+    }
+}

@@ -16,9 +16,9 @@ struct ShelfSlotView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.78),
-                                Color(red: 1.00, green: 0.86, blue: 0.72).opacity(0.56),
-                                Color(red: 0.74, green: 0.95, blue: 0.98).opacity(0.24)
+                                Color.white.opacity(0.88),
+                                Color(red: 1.00, green: 0.91, blue: 0.52).opacity(0.48),
+                                Color(red: 0.76, green: 0.48, blue: 1.00).opacity(0.28)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -26,8 +26,9 @@ struct ShelfSlotView: View {
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: AppStyle.tileCornerRadius, style: .continuous)
-                            .stroke(.white.opacity(0.52), style: StrokeStyle(lineWidth: 1.2, dash: [5, 4]))
+                            .stroke(.white.opacity(0.62), style: StrokeStyle(lineWidth: 1.4, dash: [5, 4]))
                     }
+                    .shadow(color: .purple.opacity(0.16), radius: 7, y: 4)
                     .overlay {
                         if isHinted {
                             RoundedRectangle(cornerRadius: AppStyle.tileCornerRadius, style: .continuous)

@@ -7,6 +7,7 @@ struct ShelfView: View {
     let matchedPositions: Set<Position>
     let hintPositions: Set<Position>
     let invalidTargetPosition: Position?
+    let theme: ShelfTheme
     var preferredHeight: CGFloat = 92
     let onTap: (Position) -> Void
 
@@ -42,11 +43,7 @@ struct ShelfView: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [
-                                Color(red: 0.49, green: 0.22, blue: 0.12),
-                                Color(red: 1.00, green: 0.64, blue: 0.32),
-                                Color(red: 0.55, green: 0.24, blue: 0.15)
-                            ],
+                            colors: theme.railGradient,
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -58,6 +55,27 @@ struct ShelfView: View {
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(shelfBackground)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: AppStyle.shelfCornerRadius - 4, style: .continuous)
+                    .fill(.white.opacity(0.18))
+                    .frame(height: 18)
+                    .padding(.horizontal, 18)
+                    .offset(y: 5)
+            }
+            .overlay(alignment: .bottom) {
+                Capsule()
+                    .fill(Color(red: 0.24, green: 0.08, blue: 0.34).opacity(0.40))
+                    .frame(height: 15)
+                    .padding(.horizontal, 16)
+                    .offset(y: -5)
+            }
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: theme.shelfSymbol)
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
+            }
             .overlay(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: AppStyle.shelfCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.46), lineWidth: 1.5)
@@ -72,13 +90,24 @@ struct ShelfView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color(red: 1.00, green: 0.83, blue: 0.48).opacity(0.96),
-                        Color(red: 1.00, green: 0.48, blue: 0.42).opacity(0.24),
-                        Color(red: 0.43, green: 0.79, blue: 0.82).opacity(0.20)
+                        Color(red: 1.00, green: 0.88, blue: 0.38).opacity(0.92),
+                        theme.accent.opacity(0.78),
+                        Color(red: 0.36, green: 0.12, blue: 0.52).opacity(0.74)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: AppStyle.shelfCornerRadius, style: .continuous)
+                    .fill(
+                        RadialGradient(
+                            colors: [.white.opacity(0.28), .clear],
+                            center: .topLeading,
+                            startRadius: 10,
+                            endRadius: 240
+                        )
+                    )
+            }
     }
 }

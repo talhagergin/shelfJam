@@ -12,18 +12,10 @@ struct MatchEffectOverlay: View {
                     carDriveEffect(in: proxy.size)
                 case .gift:
                     confettiEffect
-                case .apple:
-                    burstEffect(symbols: ["🍎", "✨", "🍃"], color: .red)
-                case .teddy:
-                    burstEffect(symbols: ["🧸", "💛", "✨"], color: .brown)
-                case .book:
-                    burstEffect(symbols: ["📚", "📖", "✨"], color: .purple)
-                case .cup:
-                    burstEffect(symbols: ["☕️", "〰️", "✨"], color: .orange)
-                case .plant:
-                    burstEffect(symbols: ["🪴", "🍃", "✨"], color: .green)
                 case .ball:
                     bounceEffect
+                default:
+                    burstEffect(itemType: effect.itemType, symbols: ["✨", "✦"], color: effect.itemType.color)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -38,7 +30,7 @@ struct MatchEffectOverlay: View {
 
     private func carDriveEffect(in size: CGSize) -> some View {
         HStack(spacing: 8) {
-            Text("🚗")
+            effectImage(.car, size: 96)
             HStack(spacing: -8) {
                 Text("💨")
                 Text("💨")
@@ -48,7 +40,7 @@ struct MatchEffectOverlay: View {
             }
             .opacity(isAnimating ? 0.12 : 0.95)
         }
-        .font(.system(size: 82))
+        .font(.system(size: 72))
         .shadow(color: .black.opacity(0.24), radius: 12, y: 6)
         .offset(
             x: isAnimating ? -210 : size.width + 180,
@@ -60,8 +52,7 @@ struct MatchEffectOverlay: View {
 
     private var confettiEffect: some View {
         ZStack {
-            Text("🎁")
-                .font(.system(size: 78))
+            effectImage(.gift, size: 96)
                 .scaleEffect(isAnimating ? 1.45 : 0.72)
                 .opacity(isAnimating ? 0 : 1)
             ForEach(0..<22, id: \.self) { index in
@@ -80,14 +71,13 @@ struct MatchEffectOverlay: View {
     }
 
     private var sparkleEffect: some View {
-        burstEffect(symbols: ["✨", "✦", "⭐️"], color: effect.itemType.color)
+        burstEffect(itemType: effect.itemType, symbols: ["✨", "✦", "⭐️"], color: effect.itemType.color)
     }
 
     private var bounceEffect: some View {
         ZStack {
             ForEach(0..<6, id: \.self) { index in
-                Text("⚽️")
-                    .font(.system(size: 50))
+                effectImage(.ball, size: 56)
                     .offset(
                         x: CGFloat(index - 3) * 34,
                         y: isAnimating ? CGFloat(abs(index - 3)) * 20 - 150 : 38
@@ -99,10 +89,9 @@ struct MatchEffectOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func burstEffect(symbols: [String], color: Color) -> some View {
+    private func burstEffect(itemType: ShelfItemType, symbols: [String], color: Color) -> some View {
         ZStack {
-            Text(symbols.first ?? "✨")
-                .font(.system(size: 76))
+            effectImage(itemType, size: 92)
                 .scaleEffect(isAnimating ? 1.5 : 0.55)
                 .opacity(isAnimating ? 0 : 0.95)
             ForEach(0..<16, id: \.self) { index in
@@ -119,6 +108,21 @@ struct MatchEffectOverlay: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func effectImage(_ itemType: ShelfItemType, size: CGFloat) -> some View {
+        Group {
+            if let assetName = itemType.assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Text(itemType.icon)
+                    .font(.system(size: size * 0.74))
+            }
+        }
+        .frame(width: size, height: size)
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
     }
 
     private func confettiSymbol(for index: Int) -> String {

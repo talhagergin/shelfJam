@@ -78,12 +78,12 @@ final class GameLogicTests: XCTestCase {
 
         let rush = provider.level(id: 35)
         XCTAssertEqual(rush?.title, "Rush Challenge 35")
-        XCTAssertEqual(rush?.moveLimit, 35)
-        XCTAssertEqual(rush?.timeLimit, 26)
+        XCTAssertEqual(rush?.moveLimit, 28)
+        XCTAssertEqual(rush?.timeLimit, 22)
 
         let precision = provider.level(id: 40)
         XCTAssertEqual(precision?.title, "Precision Challenge 40")
-        XCTAssertEqual(precision?.moveLimit, 9)
+        XCTAssertEqual(precision?.moveLimit, 8)
         XCTAssertEqual(precision?.timeLimit, 0)
     }
 
@@ -264,7 +264,7 @@ final class GameLogicTests: XCTestCase {
         XCTAssertFalse(viewModel.isBoardCleared)
     }
 
-    func testAdjacentThreeMatchUnlocksMatchingLockedItems() {
+    func testAdjacentThreeMatchUnlocksOnlyTouchingMatchingLockedItems() {
         let viewModel = makeViewModel(
             shelves: [
                 row(.book, .book, .book, nil, nil),
@@ -276,7 +276,7 @@ final class GameLogicTests: XCTestCase {
         viewModel.clearMatches()
 
         XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 1, slotIndex: 1))?.isLocked, false)
-        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 2, slotIndex: 2))?.isLocked, false)
+        XCTAssertEqual(viewModel.item(at: Position(shelfIndex: 2, slotIndex: 2))?.isLocked, true)
     }
 
     func testMovesDecreaseAfterValidMove() {
@@ -788,7 +788,7 @@ private struct LevelSolvabilitySolver {
         let board = level.shelves.map { shelf in
             shelf.map { item -> SolverCell? in
                 guard let item else { return nil }
-                return SolverCell(type: item.type, isLocked: item.isLocked, isJoker: item.isJoker, isBomb: item.isBomb)
+                return SolverCell(type: item.type, isLocked: item.isLocked, isHidden: item.isHidden, isJoker: item.isJoker, isBomb: item.isBomb)
             }
         }
         var memo: [String: Int] = [:]
@@ -871,7 +871,10 @@ private struct LevelSolvabilitySolver {
 
     private func apply(_ move: SolvedMove, to board: Board) -> Board {
         var next = board
-        let item = next[move.from.shelfIndex][move.from.slotIndex]
+        var item = next[move.from.shelfIndex][move.from.slotIndex]
+        if item?.isHidden == true {
+            item?.isHidden = false
+        }
         next[move.from.shelfIndex][move.from.slotIndex] = nil
         next[move.to.shelfIndex][move.to.slotIndex] = item
         return next
@@ -905,26 +908,29 @@ private struct LevelSolvabilitySolver {
         }
 
         let fiveMatchTypes = Set(matches.filter { $0.slotIndexes.count >= 5 }.map(\.itemType))
-        let adjacentLockTypes = Set(matches.compactMap { match -> ShelfItemType? in
+        let adjacentLockedPositions = Set(matches.flatMap { match -> [Position] in
             let matchedPositions = match.slotIndexes.map {
                 Position(shelfIndex: match.shelfIndex, slotIndex: $0)
             }
-            let touchesMatchingLock = matchedPositions.contains { position in
-                adjacentPositions(to: position, on: board).contains { adjacent in
-                    guard let adjacentCell = board[adjacent.shelfIndex][adjacent.slotIndex] else { return false }
-                    return adjacentCell.isLocked && adjacentCell.type == match.itemType
+            return matchedPositions.flatMap { position in
+                adjacentPositions(to: position, on: board).filter { adjacent in
+                    guard let adjacentCell = board[adjacent.shelfIndex][adjacent.slotIndex],
+                          adjacentCell.isLocked,
+                          adjacentCell.type == match.itemType
+                    else { return false }
+                    return true
                 }
             }
-            return touchesMatchingLock ? match.itemType : nil
         })
-        let unlockedTypes = fiveMatchTypes.union(adjacentLockTypes)
-        if unlockedTypes.isNotEmpty {
+        if fiveMatchTypes.isNotEmpty || adjacentLockedPositions.isNotEmpty {
             for shelfIndex in next.indices {
                 for slotIndex in next[shelfIndex].indices {
+                    let position = Position(shelfIndex: shelfIndex, slotIndex: slotIndex)
                     guard var cell = next[shelfIndex][slotIndex],
-                          cell.isLocked,
-                          unlockedTypes.contains(cell.type)
+                          cell.isLocked
                     else { continue }
+                    let shouldUnlock = fiveMatchTypes.contains(cell.type) || adjacentLockedPositions.contains(position)
+                    guard shouldUnlock else { continue }
                     cell.isLocked = false
                     next[shelfIndex][slotIndex] = cell
                 }
@@ -957,7 +963,7 @@ private struct LevelSolvabilitySolver {
 
         for (shelfIndex, shelf) in board.enumerated() {
             let candidates = Set(shelf.compactMap { cell -> ShelfItemType? in
-                guard let cell, !cell.isLocked, !cell.isJoker else { return nil }
+                guard let cell, !cell.isLocked, !cell.isHidden, !cell.isJoker else { return nil }
                 return cell.type
             })
             var shelfMatches: [MatchGroup] = []
@@ -988,7 +994,7 @@ private struct LevelSolvabilitySolver {
     }
 
     private func isCompatible(_ cell: SolverCell?, with itemType: ShelfItemType) -> Bool {
-        guard let cell, !cell.isLocked else { return false }
+        guard let cell, !cell.isLocked, !cell.isHidden else { return false }
         return cell.isJoker || cell.type == itemType
     }
 
@@ -1023,9 +1029,10 @@ private struct LevelSolvabilitySolver {
                 shelf.map { cell in
                     guard let cell else { return "-" }
                     let lockPrefix = cell.isLocked ? "L" : ""
+                    let hiddenPrefix = cell.isHidden ? "H" : ""
                     let jokerPrefix = cell.isJoker ? "J" : ""
                     let bombPrefix = cell.isBomb ? "B" : ""
-                    return "\(lockPrefix)\(jokerPrefix)\(bombPrefix)\(cell.type.rawValue)"
+                    return "\(lockPrefix)\(hiddenPrefix)\(jokerPrefix)\(bombPrefix)\(cell.type.rawValue)"
                 }.joined(separator: ",")
             }
             .joined(separator: "|")
@@ -1035,6 +1042,7 @@ private struct LevelSolvabilitySolver {
 private struct SolverCell: Equatable {
     let type: ShelfItemType
     var isLocked: Bool
+    var isHidden: Bool
     var isJoker: Bool
     var isBomb: Bool
 }

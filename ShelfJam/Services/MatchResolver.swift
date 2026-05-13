@@ -6,7 +6,7 @@ struct MatchResolver {
 
         for (shelfIndex, shelf) in shelves.enumerated() {
             let candidates = Set(shelf.compactMap { item -> ShelfItemType? in
-                guard let item, !item.isLocked, !item.isJoker else { return nil }
+                guard let item, !item.isLocked, !item.isHidden, !item.isJoker else { return nil }
                 return item.type
             })
             var shelfMatches: [MatchGroup] = []
@@ -60,7 +60,7 @@ struct MatchResolver {
     }
 
     private func isCompatible(_ item: ShelfItem?, with itemType: ShelfItemType) -> Bool {
-        guard let item, !item.isLocked else { return false }
+        guard let item, !item.isLocked, !item.isHidden else { return false }
         return item.isJoker || item.type == itemType
     }
 

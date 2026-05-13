@@ -14,50 +14,43 @@ struct StaticLevelProvider: LevelProvider {
             row(.apple, .apple, nil, nil, nil),
             row(.apple, nil, nil, nil, nil),
             row(.teddy, .teddy, .teddy, nil, nil)
-        ], moveLimit: 5, timeLimit: 62, difficulty: .easy, targetScore: nil, theme: .kitchen, unlockRequirement: nil),
-        ShelfLevel(id: 2, title: "Cupboard Shuffle", shelves: pairedShelves(for: [.apple, .cup, .teddy]), moveLimit: 5, timeLimit: 58, difficulty: .easy, targetScore: nil, theme: .kitchen, unlockRequirement: 1),
-        ShelfLevel(id: 3, title: "Toy Tidy", shelves: pairedShelves(for: [.car, .book, .apple]), moveLimit: 5, timeLimit: 56, difficulty: .easy, targetScore: nil, theme: .playroom, unlockRequirement: 2),
-        ShelfLevel(id: 4, title: "Open Space", shelves: pairedShelves(for: [.plant, .cup, .apple]), moveLimit: 5, timeLimit: 54, difficulty: .easy, targetScore: nil, theme: .greenhouse, unlockRequirement: 3),
-        ShelfLevel(id: 5, title: "Cozy Combo", shelves: pairedShelves(for: [.gift, .ball, .book]), moveLimit: 5, timeLimit: 52, difficulty: .easy, targetScore: nil, theme: .playroom, unlockRequirement: 4),
-        ShelfLevel(id: 6, title: "Four Shelves", shelves: pairedShelves(for: [.apple, .cup, .book, .teddy]), moveLimit: 6, timeLimit: 50, difficulty: .medium, targetScore: nil, theme: .library, unlockRequirement: 5),
-        ShelfLevel(id: 7, title: "Soft Sort", shelves: pairedShelves(for: [.plant, .car, .gift, .cup]), moveLimit: 6, timeLimit: 48, difficulty: .medium, targetScore: nil, theme: .greenhouse, unlockRequirement: 6),
-        ShelfLevel(id: 8, title: "Book Nook", shelves: pairedShelves(for: [.book, .apple, .teddy, .ball]), moveLimit: 6, timeLimit: 46, difficulty: .medium, targetScore: nil, theme: .library, unlockRequirement: 7),
-        ShelfLevel(id: 9, title: "Tight Corners", shelves: pairedShelves(for: [.cup, .plant, .car, .gift]), moveLimit: 6, timeLimit: 44, difficulty: .medium, targetScore: nil, theme: .kitchen, unlockRequirement: 8),
-        ShelfLevel(id: 10, title: "Double Clear", shelves: pairedShelves(for: [.apple, .book, .cup, .ball]), moveLimit: 6, timeLimit: 42, difficulty: .medium, targetScore: nil, theme: .playroom, unlockRequirement: 9),
-        ShelfLevel(id: 11, title: "Five Finds", shelves: pairedShelves(for: [.apple, .book, .plant, .cup, .teddy]), moveLimit: 7, timeLimit: 40, difficulty: .hard, targetScore: nil, theme: .greenhouse, unlockRequirement: 10),
-        ShelfLevel(id: 12, title: "Shelf Steps", shelves: pairedShelves(for: [.gift, .car, .ball, .apple, .book]), moveLimit: 7, timeLimit: 39, difficulty: .hard, targetScore: nil, theme: .library, unlockRequirement: 11),
-        ShelfLevel(id: 13, title: "Gentle Jam", shelves: pairedShelves(for: [.cup, .plant, .teddy, .gift, .car]), moveLimit: 7, timeLimit: 38, difficulty: .hard, targetScore: nil, theme: .playroom, unlockRequirement: 12),
-        ShelfLevel(id: 14, title: "Pantry Plan", shelves: pairedShelves(for: [.apple, .cup, .book, .plant, .ball]), moveLimit: 7, timeLimit: 37, difficulty: .hard, targetScore: nil, theme: .kitchen, unlockRequirement: 13),
-        ShelfLevel(id: 15, title: "Room Reset", shelves: pairedShelves(for: [.gift, .ball, .car, .teddy, .cup]), moveLimit: 7, timeLimit: 36, difficulty: .hard, targetScore: nil, theme: .playroom, unlockRequirement: 14),
-        ShelfLevel(id: 16, title: "Careful Clear", shelves: staggeredShelves(for: [.apple, .book, .plant, .cup, .car, .gift]), moveLimit: 8, timeLimit: 35, difficulty: .expert, targetScore: nil, theme: .library, unlockRequirement: 15),
-        ShelfLevel(id: 17, title: "Combo Cabinet", shelves: staggeredShelves(for: [.ball, .gift, .cup, .plant, .book, .apple]), moveLimit: 8, timeLimit: 34, difficulty: .expert, targetScore: nil, theme: .greenhouse, unlockRequirement: 16),
-        ShelfLevel(id: 18, title: "Quiet Crunch", shelves: staggeredShelves(for: [.teddy, .car, .apple, .book, .cup, .plant]), moveLimit: 8, timeLimit: 33, difficulty: .expert, targetScore: nil, theme: .playroom, unlockRequirement: 17),
-        ShelfLevel(id: 19, title: "Final Sort", shelves: staggeredShelves(for: [.apple, .gift, .ball, .plant, .car, .book]), moveLimit: 8, timeLimit: 32, difficulty: .expert, targetScore: nil, theme: .library, unlockRequirement: 18),
-        ShelfLevel(id: 20, title: "Shelf Jam", shelves: staggeredShelves(for: [.cup, .apple, .book, .gift, .plant, .car]), moveLimit: 8, timeLimit: 31, difficulty: .expert, targetScore: nil, theme: .kitchen, unlockRequirement: 19)
+        ], moveLimit: 5, timeLimit: 52, difficulty: .easy, targetScore: nil, theme: .kitchen, unlockRequirement: nil),
+        ShelfLevel(id: 2, title: "Cupboard Shuffle", shelves: pairedShelves(for: [.apple, .cup, .teddy]), moveLimit: 5, timeLimit: 48, difficulty: .easy, targetScore: nil, theme: .kitchen, unlockRequirement: 1),
+        ShelfLevel(id: 3, title: "Bedside Tidy", shelves: pairedShelves(for: Array(ShelfTheme.bedroom.itemTypes.prefix(3))), moveLimit: 5, timeLimit: 46, difficulty: .easy, targetScore: nil, theme: .bedroom, unlockRequirement: 2),
+        ShelfLevel(id: 4, title: "Open Space", shelves: pairedShelves(for: [.plant, .cup, .apple]), moveLimit: 5, timeLimit: 44, difficulty: .easy, targetScore: nil, theme: .greenhouse, unlockRequirement: 3),
+        ShelfLevel(id: 5, title: "Cozy Combo", shelves: pairedShelves(for: [.gift, .ball, .book]), moveLimit: 5, timeLimit: 32, difficulty: .easy, targetScore: nil, theme: .playroom, unlockRequirement: 4),
+        ShelfLevel(id: 6, title: "Pantry Rush", shelves: pairedShelves(for: Array(ShelfTheme.kitchen.itemTypes.prefix(4))), moveLimit: 6, timeLimit: 34, difficulty: .medium, targetScore: nil, theme: .kitchen, unlockRequirement: 5),
+        ShelfLevel(id: 7, title: "Game Setup", shelves: pairedShelves(for: Array(ShelfTheme.gaming.itemTypes.prefix(4))), moveLimit: 6, timeLimit: 33, difficulty: .medium, targetScore: nil, theme: .gaming, unlockRequirement: 6),
+        ShelfLevel(id: 8, title: "First Lock", shelves: lockedTrainingShelves(for: Array(ShelfTheme.library.itemTypes.prefix(4))), moveLimit: 7, timeLimit: 40, difficulty: .medium, targetScore: nil, theme: .library, unlockRequirement: 7),
+        ShelfLevel(id: 9, title: "Bath Cabinet", shelves: pairedShelves(for: Array(ShelfTheme.bathroom.itemTypes.prefix(4))), moveLimit: 6, timeLimit: 31, difficulty: .medium, targetScore: nil, theme: .bathroom, unlockRequirement: 8),
+        ShelfLevel(id: 10, title: "Vanity Mix", shelves: pairedShelves(for: Array(ShelfTheme.vanity.itemTypes.prefix(4))), moveLimit: 6, timeLimit: 30, difficulty: .medium, targetScore: nil, theme: .vanity, unlockRequirement: 9),
+        ShelfLevel(id: 11, title: "Greenhouse Grid", shelves: pairedShelves(for: Array(ShelfTheme.greenhouse.itemTypes.prefix(5))), moveLimit: 7, timeLimit: 35, difficulty: .hard, targetScore: nil, theme: .greenhouse, unlockRequirement: 10),
+        ShelfLevel(id: 12, title: "Office Stack", shelves: pairedShelves(for: Array(ShelfTheme.office.itemTypes.prefix(5))), moveLimit: 7, timeLimit: 34, difficulty: .hard, targetScore: nil, theme: .office, unlockRequirement: 11),
+        ShelfLevel(id: 13, title: "Garage Sort", shelves: pairedShelves(for: Array(ShelfTheme.garage.itemTypes.prefix(5))), moveLimit: 7, timeLimit: 33, difficulty: .hard, targetScore: nil, theme: .garage, unlockRequirement: 12),
+        ShelfLevel(id: 14, title: "Camp Bag", shelves: pairedShelves(for: Array(ShelfTheme.camping.itemTypes.prefix(5))), moveLimit: 7, timeLimit: 32, difficulty: .hard, targetScore: nil, theme: .camping, unlockRequirement: 13),
+        ShelfLevel(id: 15, title: "Locked Pantry", shelves: lockedTrainingShelves(for: Array(ShelfTheme.kitchen.itemTypes.prefix(5))), moveLimit: 8, timeLimit: 36, difficulty: .hard, targetScore: nil, theme: .kitchen, unlockRequirement: 14),
+        ShelfLevel(id: 16, title: "Library Jam", shelves: staggeredShelves(for: Array(ShelfTheme.library.itemTypes.prefix(6))), moveLimit: 10, timeLimit: 37, difficulty: .expert, targetScore: nil, theme: .library, unlockRequirement: 15),
+        ShelfLevel(id: 17, title: "Plant Puzzle", shelves: staggeredShelves(for: Array(ShelfTheme.greenhouse.itemTypes.prefix(6))), moveLimit: 10, timeLimit: 36, difficulty: .expert, targetScore: nil, theme: .greenhouse, unlockRequirement: 16),
+        ShelfLevel(id: 18, title: "Gaming Jam", shelves: staggeredShelves(for: Array(ShelfTheme.gaming.itemTypes.prefix(6))), moveLimit: 10, timeLimit: 35, difficulty: .expert, targetScore: nil, theme: .gaming, unlockRequirement: 17),
+        ShelfLevel(id: 19, title: "Bubble Lock", shelves: scatteredLockedShelves(for: Array(ShelfTheme.bathroom.itemTypes.prefix(6))), moveLimit: 11, timeLimit: 40, difficulty: .expert, targetScore: nil, theme: .bathroom, unlockRequirement: 18),
+        ShelfLevel(id: 20, title: "Shelf Jam", shelves: scatteredLockedShelves(for: Array(ShelfTheme.vanity.itemTypes.prefix(6))), moveLimit: 11, timeLimit: 39, difficulty: .expert, targetScore: nil, theme: .vanity, unlockRequirement: 19)
         ] + makeExtendedLevels()
     }
 
     private static func makeExtendedLevels() -> [ShelfLevel] {
-        let typeSets: [[ShelfItemType]] = [
-            [.apple, .teddy, .car, .book, .cup],
-            [.plant, .ball, .gift, .apple, .car],
-            [.book, .cup, .plant, .teddy, .gift, .ball],
-            [.apple, .book, .gift, .plant, .car, .cup],
-            [.teddy, .ball, .cup, .book, .plant, .gift],
-            [.car, .apple, .plant, .gift, .ball, .book]
-        ]
+        let themes = ShelfTheme.allCases
 
         return (21...60).map { id in
-            let types = typeSets[(id - 21) % typeSets.count]
+            let theme = themes[(id - 21) % themes.count]
+            let types = theme.itemTypes
             let difficulty: LevelDifficulty = id < 31 ? .medium : (id < 46 ? .hard : .expert)
-            let theme = ShelfTheme.allCases[(id - 1) % ShelfTheme.allCases.count]
             let challenge = challengeRule(for: id, difficulty: difficulty)
-            let baseMoves = difficulty == .medium ? 10 : (difficulty == .hard ? 12 : 11)
+            let baseMoves = difficulty == .medium ? 8 : (difficulty == .hard ? 9 : 8)
             return ShelfLevel(
                 id: id,
-                title: challenge.title ?? "Shelf Mix \(id)",
+                title: challenge.title ?? "\(theme.title) \(id)",
                 shelves: generatedShelves(for: types, offset: id),
-                moveLimit: challenge.moveLimit ?? (baseMoves + (id % 3)),
+                moveLimit: challenge.moveLimit ?? (baseMoves + (id % 2)),
                 timeLimit: challenge.timeLimit,
                 difficulty: difficulty,
                 targetScore: nil,
@@ -70,11 +63,17 @@ struct StaticLevelProvider: LevelProvider {
     private static func generatedShelves(for types: [ShelfItemType], offset: Int) -> [[ShelfItem?]] {
         let rotation = offset % types.count
         let rotated = Array(types.dropFirst(rotation)) + Array(types.prefix(rotation))
-        if offset >= 46 {
-            return challengeLockedShelves(for: rotated)
+        if offset >= 50 {
+            return jokerLockedShelves(for: rotated)
+        }
+        if offset >= 40 {
+            return jokerShelves(for: rotated)
         }
         if offset >= 31 {
             return scatteredLockedShelves(for: rotated)
+        }
+        if offset >= 24 {
+            return staggeredShelves(for: rotated)
         }
         if offset >= 16 {
             return staggeredShelves(for: rotated)
@@ -86,11 +85,11 @@ struct StaticLevelProvider: LevelProvider {
         guard id >= 25, id.isMultiple(of: 5) else { return (nil, nil, nil) }
 
         if id.isMultiple(of: 10) {
-            let moveLimit = difficulty == .expert ? 8 : 9
+            let moveLimit = difficulty == .expert ? 7 : 8
             return ("Precision Challenge \(id)", moveLimit, 0)
         } else {
-            let timeLimit: TimeInterval = difficulty == .expert ? 22 : 26
-            return ("Rush Challenge \(id)", 35, timeLimit)
+            let timeLimit: TimeInterval = difficulty == .expert ? 18 : 22
+            return ("Rush Challenge \(id)", 28, timeLimit)
         }
     }
 
@@ -161,6 +160,31 @@ struct StaticLevelProvider: LevelProvider {
         }
     }
 
+    private static func lockedTrainingShelves(for types: [ShelfItemType]) -> [[ShelfItem?]] {
+        let padded = Array(types.prefix(5)) + [.apple, .cup, .book, .plant, .gift]
+        let a = padded[0], b = padded[1], c = padded[2], d = padded[3], e = padded[4]
+        return [
+            row(a, a, nil, b, b),
+            mixedRow(lockedItem(a), nil, item(a), item(a), item(a)),
+            row(d, d, nil, e, e),
+            row(c, c, nil, b, nil),
+            row(d, e, nil, nil, nil)
+        ]
+    }
+
+    private static func jokerShelves(for types: [ShelfItemType]) -> [[ShelfItem?]] {
+        let padded = Array(types.prefix(6)) + [.apple, .cup, .book, .plant, .gift, .ball]
+        let a = padded[0], b = padded[1], c = padded[2], d = padded[3], e = padded[4], f = padded[5]
+        return [
+            row(a, nil, a, b, nil),
+            mixedRow(item(a), item(b), nil, jokerItem(b), nil),
+            row(c, nil, c, d, nil),
+            mixedRow(item(c), item(d), nil, item(d), nil),
+            mixedRow(item(e), item(f), nil, item(f), nil),
+            mixedRow(jokerItem(e), item(e), nil, nil, nil)
+        ]
+    }
+
     private static func scatteredLockedShelves(for types: [ShelfItemType]) -> [[ShelfItem?]] {
         let usableTypes = Array(types.prefix(6))
         if usableTypes.count >= 6 {
@@ -185,6 +209,19 @@ struct StaticLevelProvider: LevelProvider {
                 row(e, nil, nil, nil, nil)
             ]
         }
+    }
+
+    private static func jokerLockedShelves(for types: [ShelfItemType]) -> [[ShelfItem?]] {
+        let padded = Array(types.prefix(6)) + [.apple, .cup, .book, .plant, .gift, .ball]
+        let a = padded[0], b = padded[1], c = padded[2], d = padded[3], e = padded[4], f = padded[5]
+        return [
+            row(a, nil, a, b, nil),
+            mixedRow(item(a), item(b), nil, jokerItem(b), lockedItem(a)),
+            mixedRow(item(c), nil, item(c), item(c), nil),
+            mixedRow(item(d), lockedItem(a), nil, item(d), item(b)),
+            mixedRow(item(e), item(f), nil, item(f), lockedItem(a)),
+            mixedRow(jokerItem(e), item(e), item(a), nil, nil)
+        ]
     }
 
     private static func challengeLockedShelves(for types: [ShelfItemType]) -> [[ShelfItem?]] {

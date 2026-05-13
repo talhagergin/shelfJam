@@ -498,38 +498,45 @@ final class GameViewModel: ObservableObject {
 
     private func unlockItemsIfNeeded(after matches: [MatchGroup]) {
         let fiveMatchTypes = Set(matches.filter { $0.slotIndexes.count >= 5 }.map(\.itemType))
-        let adjacentLockTypes = Set(matches.compactMap { match -> ShelfItemType? in
+        let adjacentLockedPositions = Set(matches.flatMap { match -> [Position] in
             let matchedPositions = match.slotIndexes.map {
                 Position(shelfIndex: match.shelfIndex, slotIndex: $0)
             }
-            let touchesMatchingLock = matchedPositions.contains { position in
-                adjacentPositions(to: position).contains { adjacent in
-                    guard let adjacentItem = item(at: adjacent) else { return false }
-                    return adjacentItem.isLocked && adjacentItem.type == match.itemType
+            return matchedPositions.flatMap { position in
+                adjacentPositions(to: position).filter { adjacent in
+                    guard let adjacentItem = item(at: adjacent),
+                          adjacentItem.isLocked,
+                          adjacentItem.type == match.itemType
+                    else { return false }
+                    return true
                 }
             }
-            return touchesMatchingLock ? match.itemType : nil
         })
-        let unlockedTypes = fiveMatchTypes.union(adjacentLockTypes)
-        guard unlockedTypes.isNotEmpty else { return }
+        guard fiveMatchTypes.isNotEmpty || adjacentLockedPositions.isNotEmpty else { return }
 
         var unlockedCount = 0
+        var unlockedNames: Set<ShelfItemType> = []
         for shelfIndex in shelves.indices {
             for slotIndex in shelves[shelfIndex].indices {
+                let position = Position(shelfIndex: shelfIndex, slotIndex: slotIndex)
                 guard var item = shelves[shelfIndex][slotIndex],
-                      item.isLocked,
-                      unlockedTypes.contains(item.type)
+                      item.isLocked
                 else { continue }
+
+                let shouldUnlock = fiveMatchTypes.contains(item.type) || adjacentLockedPositions.contains(position)
+                guard shouldUnlock else { continue }
+
                 item.isLocked = false
                 shelves[shelfIndex][slotIndex] = item
                 unlockedCount += 1
+                unlockedNames.insert(item.type)
             }
         }
 
         if unlockedCount > 0 {
             let bonus = unlockedCount * GameConstants.unlockBonus
             score += bonus
-            let names = unlockedTypes.map(\.displayName).sorted().joined(separator: ", ")
+            let names = unlockedNames.map(\.displayName).sorted().joined(separator: ", ")
             unlockMessage = "\(names) unlocked! +\(bonus)"
             recentMatchEffects.append(MatchEffect(kind: .unlock))
             haptics.success()

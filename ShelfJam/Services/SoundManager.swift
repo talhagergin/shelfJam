@@ -12,29 +12,29 @@ protocol SoundManaging {
 }
 
 final class SoundManager: SoundManaging {
-    private let isEnabled: () -> Bool
+    private let isGameSoundEnabled: () -> Bool
 
-    init(isEnabled: @escaping () -> Bool) {
-        self.isEnabled = isEnabled
+    init(isGameSoundEnabled: @escaping () -> Bool) {
+        self.isGameSoundEnabled = isGameSoundEnabled
     }
 
     func playMove() {
-        guard isEnabled() else { return }
+        guard isGameSoundEnabled() else { return }
         playSystemSound(1104)
     }
 
     func playMatch() {
-        guard isEnabled() else { return }
+        guard isGameSoundEnabled() else { return }
         playSystemSound(1057)
     }
 
     func playWin() {
-        guard isEnabled() else { return }
+        guard isGameSoundEnabled() else { return }
         playSystemSound(1025)
     }
 
     func playFail() {
-        guard isEnabled() else { return }
+        guard isGameSoundEnabled() else { return }
         playSystemSound(1053)
     }
 
